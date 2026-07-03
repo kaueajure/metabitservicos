@@ -1,13 +1,54 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, isNull } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 import { db } from './index.ts';
-import { users, municipalities, tasks, history, comments, attachments } from './schema.ts';
+import { users, roles, permissions, userRoles, rolePermissions, municipalities, tasks, history, comments, attachments } from './schema.ts';
 import { COMPETENCES } from '../types.ts';
 import bcrypt from 'bcryptjs';
 
-// Custom Auth Helpers
+function withoutPassword<T extends { password?: string }>(user: T | null) {
+  if (!user) return null;
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
+async function getAccessForUser(userId: number) {
+  const userRoleRows = await db.select({ slug: roles.slug })
+    .from(userRoles)
+    .innerJoin(roles, eq(userRoles.roleId, roles.id))
+    .where(eq(userRoles.userId, userId));
+
+  const permissionRows = await db.select({ slug: permissions.slug })
+    .from(userRoles)
+    .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
+    .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+    .where(eq(userRoles.userId, userId));
+
+  return {
+    roles: [...new Set(userRoleRows.map((row) => row.slug))],
+    permissions: [...new Set(permissionRows.map((row) => row.slug))],
+  };
+}
+
+async function toPublicUser(user: typeof users.$inferSelect | null) {
+  const safeUser = withoutPassword(user);
+  if (!safeUser) return null;
+  const access = await getAccessForUser(safeUser.id);
+  return { ...safeUser, ...access };
+}
+
+async function assignRoleToUser(userId: number, roleSlug: string) {
+  await db.execute(sql`
+    INSERT IGNORE INTO user_roles (user_id, role_id)
+    SELECT ${userId}, id FROM roles WHERE slug = ${roleSlug} AND deleted_at IS NULL LIMIT 1
+  `);
+}
+
+// Local authentication helpers
 export async function getUserByEmail(email: string) {
   try {
-    const result = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
+    const result = await db.select().from(users)
+      .where(and(eq(users.email, email.trim().toLowerCase()), isNull(users.deletedAt)))
+      .limit(1);
     return result[0] || null;
   } catch (error) {
     console.error('Error in getUserByEmail:', error);
@@ -17,8 +58,10 @@ export async function getUserByEmail(email: string) {
 
 export async function getUserByUid(uid: string) {
   try {
-    const result = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-    return result[0] || null;
+    const result = await db.select().from(users)
+      .where(and(eq(users.uid, uid), isNull(users.deletedAt)))
+      .limit(1);
+    return await toPublicUser(result[0] || null);
   } catch (error) {
     console.error('Error in getUserByUid:', error);
     return null;
@@ -33,59 +76,25 @@ export async function createUser(data: {
 }) {
   try {
     const hashedPassword = await bcrypt.hash(data.passwordPlain, 10);
-    const uid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    const uid = randomUUID();
+    const email = data.email.trim().toLowerCase();
+    const isAdminEmail = email === 'comercialmetabit@gmail.com';
     
     const result = await db.insert(users).values({
       uid,
-      email: data.email.trim().toLowerCase(),
+      email,
       password: hashedPassword,
       name: data.name || null,
-      employeeName: data.employeeName || null,
+      employeeName: isAdminEmail ? 'Administrador' : data.employeeName || null,
     });
     
     const insertId = (result[0] as any).insertId;
+    await assignRoleToUser(insertId, isAdminEmail ? 'admin' : 'operator');
     const inserted = await db.select().from(users).where(eq(users.id, insertId)).limit(1);
-    return inserted[0];
+    return await toPublicUser(inserted[0] || null);
   } catch (error) {
     console.error('Error in createUser:', error);
     throw error;
-  }
-}
-
-// User helper (compatibility & sync)
-export async function getOrCreateUser(uid: string, email: string, name?: string) {
-  try {
-    const isMetabit = email.trim().toLowerCase() === 'comercialmetabit@gmail.com';
-    const defaultEmployee = isMetabit ? 'Administrador' : null;
-
-    const existing = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-    if (existing.length > 0) {
-      await db.update(users)
-        .set({
-          email: email,
-          name: name || null,
-          employeeName: isMetabit ? 'Administrador' : existing[0].employeeName || defaultEmployee,
-        })
-        .where(eq(users.uid, uid));
-      const updated = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-      return updated[0];
-    } else {
-      const defaultPasswordHash = await bcrypt.hash('admin', 10);
-      const result = await db.insert(users)
-        .values({
-          uid,
-          email: email.trim().toLowerCase(),
-          password: defaultPasswordHash,
-          name: name || null,
-          employeeName: defaultEmployee,
-        });
-      const insertId = (result[0] as any).insertId;
-      const inserted = await db.select().from(users).where(eq(users.id, insertId)).limit(1);
-      return inserted[0];
-    }
-  } catch (error) {
-    console.error('Error in getOrCreateUser:', error);
-    throw new Error('Database operation failed.', { cause: error });
   }
 }
 
@@ -95,7 +104,7 @@ export async function updateUserEmployee(uid: string, employeeName: string | nul
       .set({ employeeName })
       .where(eq(users.uid, uid));
     const updated = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-    return updated[0];
+    return await toPublicUser(updated[0] || null);
   } catch (error) {
     console.error('Error in updateUserEmployee:', error);
     throw new Error('Database operation failed.', { cause: error });

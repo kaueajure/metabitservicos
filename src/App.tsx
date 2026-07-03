@@ -7,7 +7,7 @@ import { MunicipalitiesView, EMPLOYEES } from './components/MunicipalitiesView.t
 import { Loader2, LogOut, Table, BarChart3, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 function DashboardApp() {
-  const { user, token, postgresUser, logout, loading, linkEmployee } = useAuth();
+  const { user, token, profile, logout, loading, linkEmployee } = useAuth();
   const [activeTab, setActiveTab] = useState<'planilha' | 'dashboard' | 'municipios'>('planilha');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('theme');
@@ -186,16 +186,12 @@ function DashboardApp() {
         {/* Sidebar Footer - User details & Logout */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 flex flex-col gap-3">
           <div className="flex items-center gap-2.5">
-            {user.photoURL ? (
-              <img src={user.photoURL} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-700" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center font-bold text-xs border border-gray-200 dark:border-gray-700">
-                {user.displayName ? user.displayName[0] : 'U'}
-              </div>
-            )}
+            <div className="w-8 h-8 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full flex items-center justify-center font-bold text-xs border border-gray-200 dark:border-gray-700">
+              {(user.name || user.email || 'U')[0].toUpperCase()}
+            </div>
             <div className="truncate flex-1">
-              <p className="text-xs font-bold text-gray-900 dark:text-white truncate" title={user.displayName || ''}>
-                {user.displayName || 'Usuário'}
+              <p className="text-xs font-bold text-gray-900 dark:text-white truncate" title={user.name || ''}>
+                {user.name || 'Usuário'}
               </p>
               <p className="text-[10px] text-gray-500 truncate" title={user.email || ''}>
                 {user.email}
@@ -219,7 +215,7 @@ function DashboardApp() {
               </div>
             ) : (
               <select
-                value={postgresUser?.employeeName || ''}
+                value={profile?.employeeName || ''}
                 onChange={async (e) => {
                   try {
                     const selected = e.target.value;

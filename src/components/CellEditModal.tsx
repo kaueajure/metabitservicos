@@ -20,7 +20,7 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
   onClose,
   onUpdate,
 }) => {
-  const { postgresUser, user } = useAuth();
+  const { profile, user } = useAuth();
   const [activeTab, setActiveTab] = useState<'alterar' | 'historico' | 'comentarios'>('alterar');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -168,7 +168,6 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
   };
 
   useEffect(() => {
-    // onIdTokenChanged triggers on sign-in, sign-out, and auto background token refreshes by the Firebase SDK
     if (activeTab === 'historico') {
       fetchHistory();
     } else if (activeTab === 'comentarios') {
@@ -180,12 +179,12 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
   // Initialize changeName and commentAuthor based on user's linked employee
   useEffect(() => {
     const isMetabit = user?.email?.trim().toLowerCase() === 'comercialmetabit@gmail.com';
-    const defaultName = isMetabit ? 'Administrador' : (postgresUser?.employeeName || '');
+    const defaultName = isMetabit ? 'Administrador' : (profile?.employeeName || '');
     if (defaultName) {
       setChangeName(defaultName);
       setCommentAuthor(defaultName);
     }
-  }, [postgresUser, user]);
+  }, [profile, user]);
 
   // Handle cell status update (Janela de Alteração saving)
   const handleSaveAlteration = async (e: React.FormEvent) => {

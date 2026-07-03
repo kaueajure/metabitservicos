@@ -3,7 +3,11 @@ export interface User {
   uid: string;
   email: string;
   name?: string | null;
+  employeeName?: string | null;
+  roles?: string[];
+  permissions?: string[];
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Municipality {
@@ -15,6 +19,7 @@ export interface Municipality {
   email: string;
   observations?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type StatusType = 'Falta XML' | 'Não iniciado' | 'Pendência Cliente' | 'Trabalhando' | 'Retificar' | 'Enviado' | 'Homologado';
@@ -32,6 +37,7 @@ export interface Task {
   status: StatusType;
   siopsMembros?: SIOPSMembrosType | null;
   siopeFolha?: SIOPEFolhaType | null;
+  createdAt?: string;
   updatedAt: string;
 }
 
@@ -44,6 +50,7 @@ export interface HistoryRecord {
   userWhoChanged: string | null;
   observation: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Comment {
@@ -179,4 +186,3 @@ export function isTaskOverdue(status: string, obligationCode: string, competence
   const now = new Date();
   return now.getTime() > dueDate.getTime();
 }
-
