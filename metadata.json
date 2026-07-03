@@ -2,5 +2,5 @@
   "name": "Gerenciador de Obrigações Municipais",
   "description": "Sistema moderno para gerenciamento e acompanhamento anual das obrigações municipais, substituindo planilhas do Excel.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }
