@@ -1,79 +1,80 @@
-import { pgTable, serial, text, integer, timestamp } from 'drizzle-orm/pg-core';
+import { mysqlTable, serial, varchar, text, int, timestamp, longtext } from 'drizzle-orm/mysql-core';
 import { relations } from 'drizzle-orm';
 
-// Users table (Firebase Auth backed)
-export const users = pgTable('users', {
+// Users table (Local Email/Password Auth backed)
+export const users = mysqlTable('users', {
   id: serial('id').primaryKey(),
-  uid: text('uid').notNull().unique(), // Firebase UID
-  email: text('email').notNull(),
-  name: text('name'),
-  employeeName: text('employee_name'),
+  uid: varchar('uid', { length: 255 }).notNull().unique(), // Local unique UID
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  password: varchar('password', { length: 255 }).notNull(), // BCrypt hashed password
+  name: varchar('name', { length: 255 }),
+  employeeName: varchar('employee_name', { length: 255 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Municipalities table
-export const municipalities = pgTable('municipalities', {
+export const municipalities = mysqlTable('municipalities', {
   id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  state: text('state').notNull(),
-  responsible: text('responsible').notNull(),
-  phone: text('phone').notNull(),
-  email: text('email').notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  state: varchar('state', { length: 50 }).notNull(),
+  responsible: varchar('responsible', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 100 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
   observations: text('observations'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Tasks table (the Excel cells representing a municipality obligation competence)
-export const tasks = pgTable('tasks', {
+export const tasks = mysqlTable('tasks', {
   id: serial('id').primaryKey(),
-  municipalityId: integer('municipality_id')
+  municipalityId: int('municipality_id')
     .references(() => municipalities.id, { onDelete: 'cascade' })
     .notNull(),
-  obligationCode: text('obligation_code').notNull(), // 'MSC', 'RREO', 'RGF', 'DCA', 'SIOPE', 'SIOPS'
-  competence: text('competence').notNull(), // 'Janeiro', '1º Bimestre', etc.
-  year: integer('year').notNull(),
-  status: text('status').default('Falta XML').notNull(), // 'Falta XML', 'Não iniciado', 'Trabalhando', 'Retificar', 'Enviado', 'Homologado'
-  siopsMembros: text('siops_membros'), // 'Não Solicitado', 'Solicitado', etc.
-  siopeFolha: text('siope_folha'), // 'Não Solicitado', 'Solicitado', etc.
+  obligationCode: varchar('obligation_code', { length: 50 }).notNull(), // 'MSC', 'RREO', 'RGF', 'DCA', 'SIOPE', 'SIOPS'
+  competence: varchar('competence', { length: 100 }).notNull(), // 'Janeiro', '1º Bimestre', etc.
+  year: int('year').notNull(),
+  status: varchar('status', { length: 100 }).default('Falta XML').notNull(), // 'Falta XML', 'Não iniciado', 'Trabalhando', 'Retificar', 'Enviado', 'Homologado'
+  siopsMembros: varchar('siops_membros', { length: 100 }), // 'Não Solicitado', 'Solicitado', etc.
+  siopeFolha: varchar('siope_folha', { length: 100 }), // 'Não Solicitado', 'Solicitado', etc.
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // History log table (never deleted/updated)
-export const history = pgTable('history', {
+export const history = mysqlTable('history', {
   id: serial('id').primaryKey(),
-  taskId: integer('task_id')
+  taskId: int('task_id')
     .references(() => tasks.id, { onDelete: 'cascade' })
     .notNull(),
-  fieldChanged: text('field_changed').notNull(), // 'status', 'siopsMembros', 'siopeFolha'
+  fieldChanged: varchar('field_changed', { length: 100 }).notNull(), // 'status', 'siopsMembros', 'siopeFolha'
   oldValue: text('old_value'),
   newValue: text('new_value'),
-  userWhoChanged: text('user_who_changed'), // Optional 'Nome' entered in the dialog
+  userWhoChanged: varchar('user_who_changed', { length: 255 }), // Optional 'Nome' entered in the dialog
   observation: text('observation'), // Optional multiline text
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Comments table
-export const comments = pgTable('comments', {
+export const comments = mysqlTable('comments', {
   id: serial('id').primaryKey(),
-  taskId: integer('task_id')
+  taskId: int('task_id')
     .references(() => tasks.id, { onDelete: 'cascade' })
     .notNull(),
-  authorName: text('author_name').notNull(),
+  authorName: varchar('author_name', { length: 255 }).notNull(),
   text: text('text').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Attachments table
-export const attachments = pgTable('attachments', {
+export const attachments = mysqlTable('attachments', {
   id: serial('id').primaryKey(),
-  taskId: integer('task_id')
+  taskId: int('task_id')
     .references(() => tasks.id, { onDelete: 'cascade' })
     .notNull(),
-  commentId: integer('comment_id'), // optional if uploaded as a comment attachment
-  fileName: text('file_name').notNull(),
-  fileType: text('file_type').notNull(),
-  fileSize: integer('file_size').notNull(),
-  fileData: text('file_data').notNull(), // Base64 representation of file
+  commentId: int('comment_id'), // optional if uploaded as a comment attachment
+  fileName: varchar('file_name', { length: 255 }).notNull(),
+  fileType: varchar('file_type', { length: 100 }).notNull(),
+  fileSize: int('file_size').notNull(),
+  fileData: longtext('file_data').notNull(), // Base64 representation of file
   uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
 });
 

@@ -1,6 +1,8 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
 import { isTaskOverdue } from './src/types.ts';
 import {
@@ -21,7 +23,12 @@ import {
   getAttachmentById,
   getAllTasksForStats,
   getAllHistory,
+  getUserByEmail,
+  getUserByUid,
+  createUser,
 } from './src/db/helpers.ts';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'metabit_secret_key_123';
 
 async function startServer() {
   const app = express();
@@ -33,18 +40,88 @@ async function startServer() {
 
   // API Routes (must be defined BEFORE Vite middleware)
 
-  // Auth synchronization
-  app.post('/api/auth/sync', requireAuth, async (req: AuthRequest, res) => {
+  // Auth registration
+  app.post('/api/auth/register', async (req, res) => {
     try {
-      const { name } = req.body;
-      const email = req.user?.email || '';
+      const { email, password, name, employeeName } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+      }
+
+      const existing = await getUserByEmail(email);
+      if (existing) {
+        return res.status(400).json({ error: 'E-mail já cadastrado.' });
+      }
+
+      // Check special email mandatory admin assignment
+      const isMetabit = email.trim().toLowerCase() === 'comercialmetabit@gmail.com';
+      const finalEmployeeName = isMetabit ? 'Administrador' : (employeeName || null);
+
+      const dbUser = await createUser({
+        email,
+        passwordPlain: password,
+        name,
+        employeeName: finalEmployeeName,
+      });
+
+      const token = jwt.sign(
+        { uid: dbUser.uid, email: dbUser.email, name: dbUser.name },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.status(201).json({ token, user: dbUser });
+    } catch (error: any) {
+      console.error('Register route error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Auth login
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+      }
+
+      const dbUser = await getUserByEmail(email);
+      if (!dbUser) {
+        return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+      }
+
+      const passwordMatch = await bcrypt.compare(password, dbUser.password);
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+      }
+
+      const token = jwt.sign(
+        { uid: dbUser.uid, email: dbUser.email, name: dbUser.name },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.json({ token, user: dbUser });
+    } catch (error: any) {
+      console.error('Login route error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Auth me (retrieve current user profile)
+  app.get('/api/auth/me', requireAuth, async (req: AuthRequest, res) => {
+    try {
       const uid = req.user?.uid || '';
       if (!uid) {
-        return res.status(400).json({ error: 'Missing UID' });
+        return res.status(400).json({ error: 'Não autenticado' });
       }
-      const dbUser = await getOrCreateUser(uid, email, name);
+      const dbUser = await getUserByUid(uid);
+      if (!dbUser) {
+        return res.status(404).json({ error: 'Usuário não encontrado' });
+      }
       res.json(dbUser);
     } catch (error: any) {
+      console.error('Auth Me route error:', error);
       res.status(500).json({ error: error.message });
     }
   });

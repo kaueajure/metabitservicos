@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onIdTokenChanged, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleAuthProvider } from '../lib/firebase.ts';
 
 export interface PostgresUser {
   id: number;
@@ -11,12 +9,20 @@ export interface PostgresUser {
   createdAt: string;
 }
 
+// Keeping the interface type exactly the same for seamless compatibility across existing components
+export interface CustomUser {
+  uid: string;
+  email: string;
+  name: string | null;
+}
+
 interface AuthContextType {
-  user: User | null;
+  user: CustomUser | null;
   token: string | null;
   postgresUser: PostgresUser | null;
   loading: boolean;
-  loginWithGoogle: () => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, passwordPlain: string, name?: string, employeeName?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (force?: boolean) => Promise<string | null>;
   fetchWithAuth: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -26,122 +32,122 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<CustomUser | null>(null);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [postgresUser, setPostgresUser] = useState<PostgresUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Manual token refresh function
-  const refreshToken = async (force = false) => {
-    if (!auth.currentUser) return null;
-    try {
-      const freshToken = await auth.currentUser.getIdToken(force);
-      setToken(freshToken);
-      return freshToken;
-    } catch (err) {
-      console.error('Error refreshing token:', err);
-      return null;
-    }
-  };
-
-  // fetchWithAuth automatically handles appending authorization headers and retrying once upon a 401 error
   const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    let currentToken = token;
-    if (!currentToken && auth.currentUser) {
-      currentToken = await auth.currentUser.getIdToken();
-    }
-
+    const currentToken = token || localStorage.getItem('token');
     const headers = new Headers(init?.headers);
     if (currentToken) {
       headers.set('Authorization', `Bearer ${currentToken}`);
     }
-
-    let response = await fetch(input, { ...init, headers });
-
-    if (response.status === 401 && auth.currentUser) {
-      console.warn('API returned 401. Attempting token force refresh and retry...');
-      const freshToken = await refreshToken(true);
-      if (freshToken) {
-        const retryHeaders = new Headers(init?.headers);
-        retryHeaders.set('Authorization', `Bearer ${freshToken}`);
-        response = await fetch(input, { ...init, headers: retryHeaders });
-      }
-    }
-
-    return response;
+    return fetch(input, { ...init, headers });
   };
 
-  useEffect(() => {
-    // onIdTokenChanged triggers on sign-in, sign-out, and auto background token refreshes by the Firebase SDK
-    const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        try {
-          const idToken = await currentUser.getIdToken();
-          setToken(idToken);
+  const refreshToken = async () => {
+    return token;
+  };
 
-          // Synchronize user with Postgres database
-          const response = await fetch('/api/auth/sync', {
-            method: 'POST',
+  // On mount, load user profile if token is present
+  useEffect(() => {
+    const loadProfile = async () => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        try {
+          const res = await fetch('/api/auth/me', {
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${idToken}`,
+              'Authorization': `Bearer ${currentToken}`,
             },
-            body: JSON.stringify({ name: currentUser.displayName }),
           });
-          if (response.ok) {
-            const dbUser = await response.json();
-            setPostgresUser(dbUser);
+          if (res.ok) {
+            const data = await res.json();
+            setUser({
+              uid: data.uid,
+              email: data.email,
+              name: data.name,
+            });
+            setPostgresUser(data);
+          } else {
+            // Token is invalid/expired
+            localStorage.removeItem('token');
+            setToken(null);
+            setUser(null);
+            setPostgresUser(null);
           }
         } catch (err) {
-          console.error('Error syncing auth token or user:', err);
+          console.error('Error loading profile on mount:', err);
         }
-      } else {
-        setUser(null);
-        setToken(null);
-        setPostgresUser(null);
       }
       setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Periodic refresher to prevent expiration (runs every 10 minutes if user is signed in)
-  useEffect(() => {
-    if (!user) return;
-
-    const interval = setInterval(async () => {
-      try {
-        console.log('Background refreshing ID token...');
-        await refreshToken(false); // getCached or fresh if expired
-      } catch (err) {
-        console.error('Background token refresh failed:', err);
-      }
-    }, 10 * 60 * 1000); // 10 minutes
-
-    return () => clearInterval(interval);
-  }, [user]);
-
-  // Window focus listener to refresh the token after sleep/wake or tab backgrounding
-  useEffect(() => {
-    const handleFocus = async () => {
-      if (auth.currentUser) {
-        console.log('Window focused, checking and refreshing ID token...');
-        await refreshToken(false);
-      }
     };
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+    loadProfile();
+  }, [token]);
 
-  const loginWithGoogle = async () => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      await signInWithPopup(auth, googleAuthProvider);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Credenciais inválidas.');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+      setUser({
+        uid: data.user.uid,
+        email: data.user.email,
+        name: data.user.name,
+      });
+      setPostgresUser(data.user);
     } catch (err) {
       console.error('Login error:', err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (email: string, passwordPlain: string, name?: string, employeeName?: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password: passwordPlain, name, employeeName }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Erro ao cadastrar usuário.');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+      setUser({
+        uid: data.user.uid,
+        email: data.user.email,
+        name: data.user.name,
+      });
+      setPostgresUser(data.user);
+    } catch (err) {
+      console.error('Register error:', err);
+      throw err;
+    } finally {
       setLoading(false);
     }
   };
@@ -149,9 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setLoading(true);
     try {
-      await signOut(auth);
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+      setPostgresUser(null);
     } catch (err) {
       console.error('Logout error:', err);
+    } finally {
       setLoading(false);
     }
   };
@@ -178,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, postgresUser, loading, loginWithGoogle, logout, refreshToken, fetchWithAuth, linkEmployee }}>
+    <AuthContext.Provider value={{ user, token, postgresUser, loading, login, register, logout, refreshToken, fetchWithAuth, linkEmployee }}>
       {children}
     </AuthContext.Provider>
   );

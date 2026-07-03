@@ -2,32 +2,87 @@ import { eq, and, sql } from 'drizzle-orm';
 import { db } from './index.ts';
 import { users, municipalities, tasks, history, comments, attachments } from './schema.ts';
 import { COMPETENCES } from '../types.ts';
+import bcrypt from 'bcryptjs';
 
-// User helper
+// Custom Auth Helpers
+export async function getUserByEmail(email: string) {
+  try {
+    const result = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
+    return result[0] || null;
+  } catch (error) {
+    console.error('Error in getUserByEmail:', error);
+    return null;
+  }
+}
+
+export async function getUserByUid(uid: string) {
+  try {
+    const result = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
+    return result[0] || null;
+  } catch (error) {
+    console.error('Error in getUserByUid:', error);
+    return null;
+  }
+}
+
+export async function createUser(data: {
+  email: string;
+  passwordPlain: string;
+  name?: string;
+  employeeName?: string;
+}) {
+  try {
+    const hashedPassword = await bcrypt.hash(data.passwordPlain, 10);
+    const uid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    
+    const result = await db.insert(users).values({
+      uid,
+      email: data.email.trim().toLowerCase(),
+      password: hashedPassword,
+      name: data.name || null,
+      employeeName: data.employeeName || null,
+    });
+    
+    const insertId = (result[0] as any).insertId;
+    const inserted = await db.select().from(users).where(eq(users.id, insertId)).limit(1);
+    return inserted[0];
+  } catch (error) {
+    console.error('Error in createUser:', error);
+    throw error;
+  }
+}
+
+// User helper (compatibility & sync)
 export async function getOrCreateUser(uid: string, email: string, name?: string) {
   try {
     const isMetabit = email.trim().toLowerCase() === 'comercialmetabit@gmail.com';
     const defaultEmployee = isMetabit ? 'Administrador' : null;
 
-    const result = await db.insert(users)
-      .values({
-        uid,
-        email,
-        name: name || null,
-        employeeName: defaultEmployee,
-      })
-      .onConflictDoUpdate({
-        target: users.uid,
-        set: {
-          email: sql`excluded.email`,
-          name: sql`excluded.name`,
-          employeeName: isMetabit 
-            ? 'Administrador' 
-            : sql`COALESCE(users.employee_name, excluded.employee_name)`
-        },
-      })
-      .returning();
-    return result[0];
+    const existing = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
+    if (existing.length > 0) {
+      await db.update(users)
+        .set({
+          email: email,
+          name: name || null,
+          employeeName: isMetabit ? 'Administrador' : existing[0].employeeName || defaultEmployee,
+        })
+        .where(eq(users.uid, uid));
+      const updated = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
+      return updated[0];
+    } else {
+      const defaultPasswordHash = await bcrypt.hash('admin', 10);
+      const result = await db.insert(users)
+        .values({
+          uid,
+          email: email.trim().toLowerCase(),
+          password: defaultPasswordHash,
+          name: name || null,
+          employeeName: defaultEmployee,
+        });
+      const insertId = (result[0] as any).insertId;
+      const inserted = await db.select().from(users).where(eq(users.id, insertId)).limit(1);
+      return inserted[0];
+    }
   } catch (error) {
     console.error('Error in getOrCreateUser:', error);
     throw new Error('Database operation failed.', { cause: error });
@@ -36,11 +91,11 @@ export async function getOrCreateUser(uid: string, email: string, name?: string)
 
 export async function updateUserEmployee(uid: string, employeeName: string | null) {
   try {
-    const result = await db.update(users)
+    await db.update(users)
       .set({ employeeName })
-      .where(eq(users.uid, uid))
-      .returning();
-    return result[0];
+      .where(eq(users.uid, uid));
+    const updated = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
+    return updated[0];
   } catch (error) {
     console.error('Error in updateUserEmployee:', error);
     throw new Error('Database operation failed.', { cause: error });
@@ -74,9 +129,10 @@ export async function createMunicipality(data: {
         phone: data.phone,
         email: data.email,
         observations: data.observations || null,
-      })
-      .returning();
-    return result[0];
+      });
+    const insertId = (result[0] as any).insertId;
+    const inserted = await db.select().from(municipalities).where(eq(municipalities.id, insertId)).limit(1);
+    return inserted[0];
   } catch (error) {
     console.error('Error in createMunicipality:', error);
     throw new Error('Database insert failed.', { cause: error });
@@ -95,7 +151,7 @@ export async function updateMunicipality(
   }
 ) {
   try {
-    const result = await db.update(municipalities)
+    await db.update(municipalities)
       .set({
         name: data.name,
         state: data.state,
@@ -104,9 +160,9 @@ export async function updateMunicipality(
         email: data.email,
         observations: data.observations || null,
       })
-      .where(eq(municipalities.id, id))
-      .returning();
-    return result[0];
+      .where(eq(municipalities.id, id));
+    const updated = await db.select().from(municipalities).where(eq(municipalities.id, id)).limit(1);
+    return updated[0];
   } catch (error) {
     console.error('Error in updateMunicipality:', error);
     throw new Error('Database update failed.', { cause: error });
@@ -115,10 +171,10 @@ export async function updateMunicipality(
 
 export async function deleteMunicipality(id: number) {
   try {
-    const result = await db.delete(municipalities)
-      .where(eq(municipalities.id, id))
-      .returning();
-    return result[0];
+    const existing = await db.select().from(municipalities).where(eq(municipalities.id, id)).limit(1);
+    await db.delete(municipalities)
+      .where(eq(municipalities.id, id));
+    return existing[0];
   } catch (error) {
     console.error('Error in deleteMunicipality:', error);
     throw new Error('Database delete failed.', { cause: error });
@@ -305,7 +361,7 @@ export async function updateTaskDetails(
             }
           } else {
             // Sibling task does not exist, insert it!
-            const inserted = await tx.insert(tasks)
+            const res = await tx.insert(tasks)
               .values({
                 municipalityId: current.municipalityId,
                 obligationCode: obl,
@@ -315,19 +371,17 @@ export async function updateTaskDetails(
                 siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
                 siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
                 updatedAt: new Date(),
-              })
-              .returning();
-
-            if (inserted.length > 0) {
-              historyInserts.push({
-                taskId: inserted[0].id,
-                fieldChanged: 'status',
-                oldValue: 'Falta XML',
-                newValue: 'Não iniciado',
-                userWhoChanged: data.userWhoChanged || null,
-                observation: data.observation || null,
               });
-            }
+
+            const insertId = (res[0] as any).insertId;
+            historyInserts.push({
+              taskId: insertId,
+              fieldChanged: 'status',
+              oldValue: 'Falta XML',
+              newValue: 'Não iniciado',
+              userWhoChanged: data.userWhoChanged || null,
+              observation: data.observation || null,
+            });
           }
         }
 
@@ -381,7 +435,7 @@ export async function updateTaskDetails(
               }
             } else {
               // Task does not exist, insert it!
-              const inserted = await tx.insert(tasks)
+              const res = await tx.insert(tasks)
                 .values({
                   municipalityId: current.municipalityId,
                   obligationCode: obl,
@@ -391,19 +445,17 @@ export async function updateTaskDetails(
                   siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
                   siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
                   updatedAt: new Date(),
-                })
-                .returning();
-
-              if (inserted.length > 0) {
-                historyInserts.push({
-                  taskId: inserted[0].id,
-                  fieldChanged: 'status',
-                  oldValue: 'Falta XML',
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
                 });
-              }
+
+              const insertId = (res[0] as any).insertId;
+              historyInserts.push({
+                taskId: insertId,
+                fieldChanged: 'status',
+                oldValue: 'Falta XML',
+                newValue: 'Não iniciado',
+                userWhoChanged: data.userWhoChanged || null,
+                observation: data.observation || null,
+              });
             }
           }
         }
@@ -455,7 +507,7 @@ export async function updateTaskDetails(
               }
             } else {
               // Task does not exist, insert it!
-              const inserted = await tx.insert(tasks)
+              const res = await tx.insert(tasks)
                 .values({
                   municipalityId: current.municipalityId,
                   obligationCode: obl,
@@ -465,19 +517,17 @@ export async function updateTaskDetails(
                   siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
                   siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
                   updatedAt: new Date(),
-                })
-                .returning();
-
-              if (inserted.length > 0) {
-                historyInserts.push({
-                  taskId: inserted[0].id,
-                  fieldChanged: 'status',
-                  oldValue: 'Falta XML',
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
                 });
-              }
+
+              const insertId = (res[0] as any).insertId;
+              historyInserts.push({
+                taskId: insertId,
+                fieldChanged: 'status',
+                oldValue: 'Falta XML',
+                newValue: 'Não iniciado',
+                userWhoChanged: data.userWhoChanged || null,
+                observation: data.observation || null,
+              });
             }
           }
         }
@@ -527,7 +577,7 @@ export async function updateTaskDetails(
               }
             } else {
               // Task does not exist, insert it!
-              const inserted = await tx.insert(tasks)
+              const res = await tx.insert(tasks)
                 .values({
                   municipalityId: current.municipalityId,
                   obligationCode: obl,
@@ -537,19 +587,17 @@ export async function updateTaskDetails(
                   siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
                   siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
                   updatedAt: new Date(),
-                })
-                .returning();
-
-              if (inserted.length > 0) {
-                historyInserts.push({
-                  taskId: inserted[0].id,
-                  fieldChanged: 'status',
-                  oldValue: 'Falta XML',
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
                 });
-              }
+
+              const insertId = (res[0] as any).insertId;
+              historyInserts.push({
+                taskId: insertId,
+                fieldChanged: 'status',
+                oldValue: 'Falta XML',
+                newValue: 'Não iniciado',
+                userWhoChanged: data.userWhoChanged || null,
+                observation: data.observation || null,
+              });
             }
           }
         }
@@ -640,15 +688,14 @@ export async function updateHistoryEntry(id: number, data: {
     }
     const hRecord = existing[0];
 
-    const result = await db.update(history)
+    await db.update(history)
       .set({
         oldValue: data.oldValue,
         newValue: data.newValue,
         userWhoChanged: data.userWhoChanged,
         observation: data.observation,
       })
-      .where(eq(history.id, id))
-      .returning();
+      .where(eq(history.id, id));
 
     // Also update the main task with the corrected value in the database
     if (hRecord.fieldChanged === 'status' && data.newValue) {
@@ -665,7 +712,8 @@ export async function updateHistoryEntry(id: number, data: {
         .where(eq(tasks.id, hRecord.taskId));
     }
 
-    return result[0];
+    const updated = await db.select().from(history).where(eq(history.id, id)).limit(1);
+    return updated[0];
   } catch (error) {
     console.error('Error in updateHistoryEntry:', error);
     throw new Error('Database history update failed.', { cause: error });
@@ -692,9 +740,10 @@ export async function addTaskComment(taskId: number, authorName: string, text: s
         taskId,
         authorName,
         text,
-      })
-      .returning();
-    return result[0];
+      });
+    const insertId = (result[0] as any).insertId;
+    const inserted = await db.select().from(comments).where(eq(comments.id, insertId)).limit(1);
+    return inserted[0];
   } catch (error) {
     console.error('Error in addTaskComment:', error);
     throw new Error('Database insert comment failed.', { cause: error });
@@ -704,9 +753,6 @@ export async function addTaskComment(taskId: number, authorName: string, text: s
 // Attachments helpers
 export async function getTaskAttachments(taskId: number) {
   try {
-    // Select everything except fileData to avoid heavy transfer during simple list queries
-    // Actually, we can retrieve them all or just retrieve name, size, type first
-    // For simplicity, let's select all columns. Small files fit fine.
     return await db.select()
       .from(attachments)
       .where(eq(attachments.taskId, taskId))
@@ -732,9 +778,10 @@ export async function addAttachment(data: {
         fileType: data.fileType,
         fileSize: data.fileSize,
         fileData: data.fileData,
-      })
-      .returning();
-    return result[0];
+      });
+    const insertId = (result[0] as any).insertId;
+    const inserted = await db.select().from(attachments).where(eq(attachments.id, insertId)).limit(1);
+    return inserted[0];
   } catch (error) {
     console.error('Error in addAttachment:', error);
     throw new Error('Database insert attachment failed.', { cause: error });
@@ -770,4 +817,3 @@ export async function getAllHistory() {
     throw new Error('Database history query failed.', { cause: error });
   }
 }
-
