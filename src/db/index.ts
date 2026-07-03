@@ -1,7 +1,5 @@
 import 'dotenv/config';
-import { drizzle } from 'drizzle-orm/mysql2';
 import mysql from 'mysql2/promise';
-import * as schema from './schema.ts';
 
 export const createPool = () => {
   const connection = (process.env.DB_CONNECTION || 'mysql').toLowerCase();
@@ -20,7 +18,3 @@ export const createPool = () => {
     connectionLimit: 10,
   });
 };
-
-const pool = createPool();
-
-export const db = drizzle(pool, { schema, mode: 'default' });

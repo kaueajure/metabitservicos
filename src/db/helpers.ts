@@ -1,71 +1,155 @@
-import { eq, and, sql, isNull } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
-import { db } from './index.ts';
-import { users, roles, permissions, userRoles, rolePermissions, municipalities, tasks, history, comments, attachments } from './schema.ts';
-import { COMPETENCES } from '../types.ts';
 import bcrypt from 'bcryptjs';
+import type { RowDataPacket } from 'mysql2';
+import { createPool } from './index.ts';
+import { COMPETENCES } from '../types.ts';
 
-function withoutPassword<T extends { password?: string }>(user: T | null) {
-  if (!user) return null;
-  const { password, ...safeUser } = user;
-  return safeUser;
+const pool = createPool();
+
+type Row = RowDataPacket & Record<string, any>;
+
+function mapMunicipality(row: Row) {
+  return {
+    id: Number(row.id),
+    name: row.name,
+    state: row.state,
+    responsible: row.responsible,
+    phone: row.phone,
+    email: row.email,
+    observations: row.observations,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTask(row: Row) {
+  return {
+    id: Number(row.id),
+    municipalityId: Number(row.municipality_id),
+    obligationCode: row.obligation_code,
+    competence: row.competence,
+    year: Number(row.year),
+    status: row.status,
+    siopsMembros: row.siops_membros,
+    siopeFolha: row.siope_folha,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapHistory(row: Row) {
+  return {
+    id: Number(row.id),
+    taskId: Number(row.task_id),
+    fieldChanged: row.field_changed,
+    oldValue: row.old_value,
+    newValue: row.new_value,
+    userWhoChanged: row.user_who_changed,
+    observation: row.observation,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapComment(row: Row) {
+  return {
+    id: Number(row.id),
+    taskId: Number(row.task_id),
+    authorName: row.author_name,
+    text: row.text,
+    createdAt: row.created_at,
+  };
+}
+
+function mapAttachment(row: Row) {
+  return {
+    id: Number(row.id),
+    taskId: Number(row.task_id),
+    commentId: row.comment_id === null ? null : Number(row.comment_id),
+    fileName: row.file_name,
+    fileType: row.file_type,
+    fileSize: Number(row.file_size),
+    fileData: row.file_data,
+    uploadedAt: row.uploaded_at,
+  };
 }
 
 async function getAccessForUser(userId: number) {
-  const userRoleRows = await db.select({ slug: roles.slug })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, userId));
-
-  const permissionRows = await db.select({ slug: permissions.slug })
-    .from(userRoles)
-    .innerJoin(rolePermissions, eq(userRoles.roleId, rolePermissions.roleId))
-    .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
-    .where(eq(userRoles.userId, userId));
+  const [roleRows] = await pool.query<Row[]>(
+    `SELECT r.slug
+     FROM user_roles ur
+     INNER JOIN roles r ON r.id = ur.role_id
+     WHERE ur.user_id = ? AND r.deleted_at IS NULL`,
+    [userId]
+  );
+  const [permissionRows] = await pool.query<Row[]>(
+    `SELECT p.slug
+     FROM user_roles ur
+     INNER JOIN role_permissions rp ON rp.role_id = ur.role_id
+     INNER JOIN permissions p ON p.id = rp.permission_id
+     WHERE ur.user_id = ? AND p.deleted_at IS NULL`,
+    [userId]
+  );
 
   return {
-    roles: [...new Set(userRoleRows.map((row) => row.slug))],
+    roles: [...new Set(roleRows.map((row) => row.slug))],
     permissions: [...new Set(permissionRows.map((row) => row.slug))],
   };
 }
 
-async function toPublicUser(user: typeof users.$inferSelect | null) {
-  const safeUser = withoutPassword(user);
-  if (!safeUser) return null;
-  const access = await getAccessForUser(safeUser.id);
-  return { ...safeUser, ...access };
+async function mapUser(row: Row | null) {
+  if (!row) return null;
+  const access = await getAccessForUser(Number(row.id));
+  return {
+    id: Number(row.id),
+    uid: row.uid,
+    email: row.email,
+    name: row.name,
+    employeeName: row.employee_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    roles: access.roles,
+    permissions: access.permissions,
+  };
 }
 
 async function assignRoleToUser(userId: number, roleSlug: string) {
-  await db.execute(sql`
-    INSERT IGNORE INTO user_roles (user_id, role_id)
-    SELECT ${userId}, id FROM roles WHERE slug = ${roleSlug} AND deleted_at IS NULL LIMIT 1
-  `);
+  await pool.query(
+    `INSERT IGNORE INTO user_roles (user_id, role_id)
+     SELECT ?, id FROM roles WHERE slug = ? AND deleted_at IS NULL LIMIT 1`,
+    [userId, roleSlug]
+  );
 }
 
-// Local authentication helpers
-export async function getUserByEmail(email: string) {
+function parseResponsible(responsible: string | null) {
+  const activeServices = { MSC: true, RREO: true, RGF: true, DCA: true, SIOPE: true, SIOPS: true };
   try {
-    const result = await db.select().from(users)
-      .where(and(eq(users.email, email.trim().toLowerCase()), isNull(users.deletedAt)))
-      .limit(1);
-    return result[0] || null;
-  } catch (error) {
-    console.error('Error in getUserByEmail:', error);
-    return null;
+    if (responsible && responsible.startsWith('{')) {
+      const parsed = JSON.parse(responsible);
+      return { ...parsed, _activeServices: parsed._activeServices || activeServices };
+    }
+  } catch {
+    // Fallback to a single responsible for every service.
   }
+
+  const value = responsible === '-' ? '' : (responsible || '');
+  return { MSC: value, RREO: value, RGF: value, DCA: value, SIOPE: value, SIOPS: value, _activeServices: activeServices };
+}
+
+export async function getUserByEmail(email: string) {
+  const [rows] = await pool.query<Row[]>(
+    'SELECT * FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1',
+    [email.trim().toLowerCase()]
+  );
+  return rows[0] || null;
 }
 
 export async function getUserByUid(uid: string) {
-  try {
-    const result = await db.select().from(users)
-      .where(and(eq(users.uid, uid), isNull(users.deletedAt)))
-      .limit(1);
-    return await toPublicUser(result[0] || null);
-  } catch (error) {
-    console.error('Error in getUserByUid:', error);
-    return null;
-  }
+  const [rows] = await pool.query<Row[]>(
+    'SELECT * FROM users WHERE uid = ? AND deleted_at IS NULL LIMIT 1',
+    [uid]
+  );
+  return mapUser(rows[0] || null);
 }
 
 export async function createUser(data: {
@@ -74,51 +158,32 @@ export async function createUser(data: {
   name?: string;
   employeeName?: string;
 }) {
-  try {
-    const hashedPassword = await bcrypt.hash(data.passwordPlain, 10);
-    const uid = randomUUID();
-    const email = data.email.trim().toLowerCase();
-    const isAdminEmail = email === 'comercialmetabit@gmail.com';
-    
-    const result = await db.insert(users).values({
-      uid,
+  const email = data.email.trim().toLowerCase();
+  const isAdminEmail = email === 'comercialmetabit@gmail.com';
+  const [result] = await pool.query<any>(
+    `INSERT INTO users (uid, email, password, name, employee_name)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      randomUUID(),
       email,
-      password: hashedPassword,
-      name: data.name || null,
-      employeeName: isAdminEmail ? 'Administrador' : data.employeeName || null,
-    });
-    
-    const insertId = (result[0] as any).insertId;
-    await assignRoleToUser(insertId, isAdminEmail ? 'admin' : 'operator');
-    const inserted = await db.select().from(users).where(eq(users.id, insertId)).limit(1);
-    return await toPublicUser(inserted[0] || null);
-  } catch (error) {
-    console.error('Error in createUser:', error);
-    throw error;
-  }
+      await bcrypt.hash(data.passwordPlain, 10),
+      data.name || null,
+      isAdminEmail ? 'Administrador' : data.employeeName || null,
+    ]
+  );
+  await assignRoleToUser(Number(result.insertId), isAdminEmail ? 'admin' : 'operator');
+  const [rows] = await pool.query<Row[]>('SELECT * FROM users WHERE id = ? LIMIT 1', [result.insertId]);
+  return mapUser(rows[0] || null);
 }
 
 export async function updateUserEmployee(uid: string, employeeName: string | null) {
-  try {
-    await db.update(users)
-      .set({ employeeName })
-      .where(eq(users.uid, uid));
-    const updated = await db.select().from(users).where(eq(users.uid, uid)).limit(1);
-    return await toPublicUser(updated[0] || null);
-  } catch (error) {
-    console.error('Error in updateUserEmployee:', error);
-    throw new Error('Database operation failed.', { cause: error });
-  }
+  await pool.query('UPDATE users SET employee_name = ? WHERE uid = ?', [employeeName, uid]);
+  return getUserByUid(uid);
 }
 
-// Municipalities helpers
 export async function getMunicipalities() {
-  try {
-    return await db.select().from(municipalities).orderBy(municipalities.name);
-  } catch (error) {
-    console.error('Error in getMunicipalities:', error);
-    throw new Error('Database query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM municipalities ORDER BY name');
+  return rows.map(mapMunicipality);
 }
 
 export async function createMunicipality(data: {
@@ -129,23 +194,13 @@ export async function createMunicipality(data: {
   email: string;
   observations?: string;
 }) {
-  try {
-    const result = await db.insert(municipalities)
-      .values({
-        name: data.name,
-        state: data.state,
-        responsible: data.responsible,
-        phone: data.phone,
-        email: data.email,
-        observations: data.observations || null,
-      });
-    const insertId = (result[0] as any).insertId;
-    const inserted = await db.select().from(municipalities).where(eq(municipalities.id, insertId)).limit(1);
-    return inserted[0];
-  } catch (error) {
-    console.error('Error in createMunicipality:', error);
-    throw new Error('Database insert failed.', { cause: error });
-  }
+  const [result] = await pool.query<any>(
+    `INSERT INTO municipalities (name, state, responsible, phone, email, observations)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [data.name, data.state, data.responsible, data.phone, data.email, data.observations || null]
+  );
+  const [rows] = await pool.query<Row[]>('SELECT * FROM municipalities WHERE id = ? LIMIT 1', [result.insertId]);
+  return mapMunicipality(rows[0]);
 }
 
 export async function updateMunicipality(
@@ -159,133 +214,131 @@ export async function updateMunicipality(
     observations?: string;
   }
 ) {
-  try {
-    await db.update(municipalities)
-      .set({
-        name: data.name,
-        state: data.state,
-        responsible: data.responsible,
-        phone: data.phone,
-        email: data.email,
-        observations: data.observations || null,
-      })
-      .where(eq(municipalities.id, id));
-    const updated = await db.select().from(municipalities).where(eq(municipalities.id, id)).limit(1);
-    return updated[0];
-  } catch (error) {
-    console.error('Error in updateMunicipality:', error);
-    throw new Error('Database update failed.', { cause: error });
-  }
+  await pool.query(
+    `UPDATE municipalities
+     SET name = ?, state = ?, responsible = ?, phone = ?, email = ?, observations = ?
+     WHERE id = ?`,
+    [data.name, data.state, data.responsible, data.phone, data.email, data.observations || null, id]
+  );
+  const [rows] = await pool.query<Row[]>('SELECT * FROM municipalities WHERE id = ? LIMIT 1', [id]);
+  return mapMunicipality(rows[0]);
 }
 
 export async function deleteMunicipality(id: number) {
-  try {
-    const existing = await db.select().from(municipalities).where(eq(municipalities.id, id)).limit(1);
-    await db.delete(municipalities)
-      .where(eq(municipalities.id, id));
-    return existing[0];
-  } catch (error) {
-    console.error('Error in deleteMunicipality:', error);
-    throw new Error('Database delete failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM municipalities WHERE id = ? LIMIT 1', [id]);
+  await pool.query('DELETE FROM municipalities WHERE id = ?', [id]);
+  return rows[0] ? mapMunicipality(rows[0]) : null;
 }
 
-// Lazy tasks generator and fetcher
 export async function getOrCreateTasks(year: number, obligationCode: string) {
-  try {
-    // 1. Get all municipalities
-    const muns = await db.select().from(municipalities);
-    const competencesList = COMPETENCES[obligationCode] || [];
-
-    if (muns.length === 0 || competencesList.length === 0) {
-      return [];
-    }
-
-    // 2. Get existing tasks for this year & obligation
-    const existingTasks = await db.select()
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.year, year),
-          eq(tasks.obligationCode, obligationCode)
-        )
-      );
-
-    // Create a lookup map for existing tasks: municipalityId + competence
-    const taskMap = new Map<string, typeof tasks.$inferSelect>();
-    for (const t of existingTasks) {
-      taskMap.set(`${t.municipalityId}_${t.competence}`, t);
-    }
-
-    const tasksToInsert: (typeof tasks.$inferInsert)[] = [];
-
-    for (const mun of muns) {
-      // Skip if this obligation is inactive for this municipality
-      try {
-        if (mun.responsible && mun.responsible.startsWith('{')) {
-          const parsed = JSON.parse(mun.responsible);
-          if (parsed._activeServices && parsed._activeServices[obligationCode] === false) {
-            continue;
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-
-      for (const comp of competencesList) {
-        const key = `${mun.id}_${comp}`;
-        if (!taskMap.has(key)) {
-          tasksToInsert.push({
-            municipalityId: mun.id,
-            obligationCode,
-            competence: comp,
-            year,
-            status: 'Falta XML',
-            siopsMembros: obligationCode === 'SIOPS' ? 'Não Solicitado' : null,
-            siopeFolha: obligationCode === 'SIOPE' ? 'Não Solicitado' : null,
-          });
-        }
-      }
-    }
-
-    // 3. Batch insert missing tasks
-    if (tasksToInsert.length > 0) {
-      await db.insert(tasks).values(tasksToInsert);
-    }
-
-    // 4. Fetch and return complete set of tasks
-    const allFetched = await db.select()
-      .from(tasks)
-      .where(
-        and(
-          eq(tasks.year, year),
-          eq(tasks.obligationCode, obligationCode)
-        )
-      );
-
-    // Filter returned tasks to only active ones
-    return allFetched.filter(t => {
-      const mun = muns.find(m => m.id === t.municipalityId);
-      if (!mun) return false;
-      try {
-        if (mun.responsible && mun.responsible.startsWith('{')) {
-          const parsed = JSON.parse(mun.responsible);
-          if (parsed._activeServices && parsed._activeServices[obligationCode] === false) {
-            return false;
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-      return true;
-    });
-  } catch (error) {
-    console.error('Error in getOrCreateTasks:', error);
-    throw new Error('Database fetch/generate tasks failed.', { cause: error });
+  const competencesList = COMPETENCES[obligationCode] || [];
+  const [municipalityRows] = await pool.query<Row[]>('SELECT * FROM municipalities ORDER BY name');
+  if (municipalityRows.length === 0 || competencesList.length === 0) {
+    return [];
   }
+
+  for (const municipality of municipalityRows) {
+    const responsible = parseResponsible(municipality.responsible);
+    if (responsible._activeServices?.[obligationCode] === false) {
+      continue;
+    }
+
+    for (const competence of competencesList) {
+      await pool.query(
+        `INSERT IGNORE INTO tasks (municipality_id, obligation_code, competence, year, status, siops_membros, siope_folha)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          municipality.id,
+          obligationCode,
+          competence,
+          year,
+          'Falta XML',
+          obligationCode === 'SIOPS' ? 'Não Solicitado' : null,
+          obligationCode === 'SIOPE' ? 'Não Solicitado' : null,
+        ]
+      );
+    }
+  }
+
+  const [taskRows] = await pool.query<Row[]>(
+    'SELECT * FROM tasks WHERE year = ? AND obligation_code = ? ORDER BY municipality_id, id',
+    [year, obligationCode]
+  );
+  const municipalitiesById = new Map(municipalityRows.map((municipality) => [Number(municipality.id), municipality]));
+  return taskRows
+    .map(mapTask)
+    .filter((task) => {
+      const municipality = municipalitiesById.get(task.municipalityId);
+      if (!municipality) return false;
+      const responsible = parseResponsible(municipality.responsible);
+      return responsible._activeServices?.[obligationCode] !== false;
+    });
 }
 
-// Update task status and record history
+async function fetchTask(connection: any, taskId: number) {
+  const [rows] = await connection.query('SELECT * FROM tasks WHERE id = ? LIMIT 1', [taskId]);
+  return rows[0] || null;
+}
+
+async function insertHistory(connection: any, taskId: number, fieldChanged: string, oldValue: string | null, newValue: string | null, userWhoChanged?: string | null, observation?: string | null) {
+  await connection.query(
+    `INSERT INTO history (task_id, field_changed, old_value, new_value, user_who_changed, observation)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [taskId, fieldChanged, oldValue, newValue, userWhoChanged || null, observation || null]
+  );
+}
+
+async function ensureTaskStatus(
+  connection: any,
+  municipalityId: number,
+  obligationCode: string,
+  competence: string,
+  year: number,
+  newStatus: string,
+  userWhoChanged: string | undefined,
+  observation: string | undefined,
+  currentTaskId?: number,
+  currentUpdate: Record<string, any> = {}
+) {
+  const [rows] = await connection.query(
+    'SELECT * FROM tasks WHERE municipality_id = ? AND obligation_code = ? AND competence = ? AND year = ? LIMIT 1',
+    [municipalityId, obligationCode, competence, year]
+  );
+  const task = rows[0];
+
+  if (task) {
+    const taskId = Number(task.id);
+    if (currentTaskId && taskId === currentTaskId) {
+      if (task.status !== newStatus) {
+        currentUpdate.status = newStatus;
+        await insertHistory(connection, taskId, 'status', task.status, newStatus, userWhoChanged, observation);
+      }
+      return;
+    }
+
+    if (task.status === 'Falta XML') {
+      await connection.query('UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [newStatus, taskId]);
+      await insertHistory(connection, taskId, 'status', task.status, newStatus, userWhoChanged, observation);
+    }
+    return;
+  }
+
+  const [result] = await connection.query(
+    `INSERT INTO tasks (municipality_id, obligation_code, competence, year, status, siops_membros, siope_folha)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      municipalityId,
+      obligationCode,
+      competence,
+      year,
+      newStatus,
+      obligationCode === 'SIOPS' ? 'Não Solicitado' : null,
+      obligationCode === 'SIOPE' ? 'Não Solicitado' : null,
+    ]
+  );
+  await insertHistory(connection, Number(result.insertId), 'status', 'Falta XML', newStatus, userWhoChanged, observation);
+}
+
 export async function updateTaskDetails(
   taskId: number,
   data: {
@@ -296,392 +349,92 @@ export async function updateTaskDetails(
     observation?: string;
   }
 ) {
+  const connection = await pool.getConnection();
   try {
-    return await db.transaction(async (tx) => {
-      // Fetch current task first
-      const currentTasks = await tx.select().from(tasks).where(eq(tasks.id, taskId));
-      if (currentTasks.length === 0) {
-        throw new Error(`Task with ID ${taskId} not found`);
-      }
-      const current = currentTasks[0];
+    await connection.beginTransaction();
+    const current = await fetchTask(connection, taskId);
+    if (!current) {
+      throw new Error(`Task with ID ${taskId} not found`);
+    }
 
-      const historyInserts: (typeof history.$inferInsert)[] = [];
-      const updateData: Partial<typeof tasks.$inferSelect> = {
-        updatedAt: new Date(),
+    const currentUpdate: Record<string, any> = {};
+    const isFromMissingToStarted = current.status === 'Falta XML' && (data.status === 'Não iniciado' || data.status === 'Não Iniciado');
+
+    if (isFromMissingToStarted) {
+      for (const code of Object.keys(COMPETENCES)) {
+        if (COMPETENCES[code].includes(current.competence)) {
+          await ensureTaskStatus(connection, Number(current.municipality_id), code, current.competence, Number(current.year), 'Não iniciado', data.userWhoChanged, data.observation, taskId, currentUpdate);
+        }
+      }
+
+      const monthToBimester: Record<string, string> = {
+        'Fevereiro': '1º Bimestre',
+        'Abril': '2º Bimestre',
+        'Junho': '3º Bimestre',
+        'Agosto': '4º Bimestre',
+        'Outubro': '5º Bimestre',
+        'Dezembro': '6º Bimestre',
       };
-
-      const isFromFaltaXmlToNaoIniciado =
-        current.status === 'Falta XML' &&
-        (data.status === 'Não iniciado' || data.status === 'Não Iniciado');
-
-      if (isFromFaltaXmlToNaoIniciado) {
-        // Find all compatible obligation codes for this competence
-        const compatibleObligations = Object.keys(COMPETENCES).filter(code =>
-          COMPETENCES[code].includes(current.competence)
-        );
-
-        // Fetch all existing tasks for this competence, year, and municipality
-        const existingSiblingTasks = await tx.select()
-          .from(tasks)
-          .where(
-            and(
-              eq(tasks.municipalityId, current.municipalityId),
-              eq(tasks.competence, current.competence),
-              eq(tasks.year, current.year)
-            )
-          );
-
-        const siblingMap = new Map<string, typeof tasks.$inferSelect>();
-        for (const st of existingSiblingTasks) {
-          siblingMap.set(st.obligationCode, st);
-        }
-
-        for (const obl of compatibleObligations) {
-          const sibling = siblingMap.get(obl);
-          if (sibling) {
-            // Sibling task exists
-            if (sibling.id === taskId) {
-              // This is the current task being edited directly
-              updateData.status = 'Não iniciado';
-              historyInserts.push({
-                taskId: sibling.id,
-                fieldChanged: 'status',
-                oldValue: sibling.status,
-                newValue: 'Não iniciado',
-                userWhoChanged: data.userWhoChanged || null,
-                observation: data.observation || null,
-              });
-            } else {
-              // Only update if it is currently 'Falta XML'
-              if (sibling.status === 'Falta XML') {
-                await tx.update(tasks)
-                  .set({ status: 'Não iniciado', updatedAt: new Date() })
-                  .where(eq(tasks.id, sibling.id));
-
-                historyInserts.push({
-                  taskId: sibling.id,
-                  fieldChanged: 'status',
-                  oldValue: sibling.status,
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
-                });
-              }
-            }
-          } else {
-            // Sibling task does not exist, insert it!
-            const res = await tx.insert(tasks)
-              .values({
-                municipalityId: current.municipalityId,
-                obligationCode: obl,
-                competence: current.competence,
-                year: current.year,
-                status: 'Não iniciado',
-                siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
-                siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
-                updatedAt: new Date(),
-              });
-
-            const insertId = (res[0] as any).insertId;
-            historyInserts.push({
-              taskId: insertId,
-              fieldChanged: 'status',
-              oldValue: 'Falta XML',
-              newValue: 'Não iniciado',
-              userWhoChanged: data.userWhoChanged || null,
-              observation: data.observation || null,
-            });
-          }
-        }
-
-        // Monthly to Bimestre specific automatic transition logic
-        const MONTH_TO_BIMESTRE: Record<string, string> = {
-          'Fevereiro': '1º Bimestre',
-          'Abril': '2º Bimestre',
-          'Junho': '3º Bimestre',
-          'Agosto': '4º Bimestre',
-          'Outubro': '5º Bimestre',
-          'Dezembro': '6º Bimestre',
-        };
-
-        const targetBimestre = MONTH_TO_BIMESTRE[current.competence];
-        if (targetBimestre) {
-          const targetObligations = ['RREO', 'SIOPE', 'SIOPS'];
-          
-          // Fetch existing tasks for this targetBimestre, year, and municipality
-          const existingBimestreTasks = await tx.select()
-            .from(tasks)
-            .where(
-              and(
-                eq(tasks.municipalityId, current.municipalityId),
-                eq(tasks.competence, targetBimestre),
-                eq(tasks.year, current.year)
-              )
-            );
-
-          const bimestreTaskMap = new Map<string, typeof tasks.$inferSelect>();
-          for (const bt of existingBimestreTasks) {
-            bimestreTaskMap.set(bt.obligationCode, bt);
-          }
-
-          for (const obl of targetObligations) {
-            const btTask = bimestreTaskMap.get(obl);
-            if (btTask) {
-              // Task exists, only update if it is currently 'Falta XML'
-              if (btTask.status === 'Falta XML') {
-                await tx.update(tasks)
-                  .set({ status: 'Não iniciado', updatedAt: new Date() })
-                  .where(eq(tasks.id, btTask.id));
-
-                historyInserts.push({
-                  taskId: btTask.id,
-                  fieldChanged: 'status',
-                  oldValue: btTask.status,
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
-                });
-              }
-            } else {
-              // Task does not exist, insert it!
-              const res = await tx.insert(tasks)
-                .values({
-                  municipalityId: current.municipalityId,
-                  obligationCode: obl,
-                  competence: targetBimestre,
-                  year: current.year,
-                  status: 'Não iniciado',
-                  siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
-                  siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
-                  updatedAt: new Date(),
-                });
-
-              const insertId = (res[0] as any).insertId;
-              historyInserts.push({
-                taskId: insertId,
-                fieldChanged: 'status',
-                oldValue: 'Falta XML',
-                newValue: 'Não iniciado',
-                userWhoChanged: data.userWhoChanged || null,
-                observation: data.observation || null,
-              });
-            }
-          }
-        }
-
-        // Monthly to Quadrimestre specific automatic transition logic
-        const MONTH_TO_QUADRIMESTRE: Record<string, string> = {
-          'Abril': '1º Quadrimestre',
-          'Agosto': '2º Quadrimestre',
-          'Dezembro': '3º Quadrimestre',
-        };
-
-        const targetQuadrimestre = MONTH_TO_QUADRIMESTRE[current.competence];
-        if (targetQuadrimestre) {
-          const targetObligations = ['RGF'];
-          
-          // Fetch existing tasks for this targetQuadrimestre, year, and municipality
-          const existingQuadrimestreTasks = await tx.select()
-            .from(tasks)
-            .where(
-              and(
-                eq(tasks.municipalityId, current.municipalityId),
-                eq(tasks.competence, targetQuadrimestre),
-                eq(tasks.year, current.year)
-              )
-            );
-
-          const quadrimestreTaskMap = new Map<string, typeof tasks.$inferSelect>();
-          for (const qt of existingQuadrimestreTasks) {
-            quadrimestreTaskMap.set(qt.obligationCode, qt);
-          }
-
-          for (const obl of targetObligations) {
-            const qtTask = quadrimestreTaskMap.get(obl);
-            if (qtTask) {
-              // Task exists, only update if it is currently 'Falta XML'
-              if (qtTask.status === 'Falta XML') {
-                await tx.update(tasks)
-                  .set({ status: 'Não iniciado', updatedAt: new Date() })
-                  .where(eq(tasks.id, qtTask.id));
-
-                historyInserts.push({
-                  taskId: qtTask.id,
-                  fieldChanged: 'status',
-                  oldValue: qtTask.status,
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
-                });
-              }
-            } else {
-              // Task does not exist, insert it!
-              const res = await tx.insert(tasks)
-                .values({
-                  municipalityId: current.municipalityId,
-                  obligationCode: obl,
-                  competence: targetQuadrimestre,
-                  year: current.year,
-                  status: 'Não iniciado',
-                  siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
-                  siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
-                  updatedAt: new Date(),
-                });
-
-              const insertId = (res[0] as any).insertId;
-              historyInserts.push({
-                taskId: insertId,
-                fieldChanged: 'status',
-                oldValue: 'Falta XML',
-                newValue: 'Não iniciado',
-                userWhoChanged: data.userWhoChanged || null,
-                observation: data.observation || null,
-              });
-            }
-          }
-        }
-
-        // Monthly to Anual specific automatic transition logic
-        const MONTH_TO_ANUAL: Record<string, string> = {
-          'Encerramento': 'Anual',
-        };
-
-        const targetAnual = MONTH_TO_ANUAL[current.competence];
-        if (targetAnual) {
-          const targetObligations = ['DCA'];
-          
-          // Fetch existing tasks for this targetAnual, year, and municipality
-          const existingAnualTasks = await tx.select()
-            .from(tasks)
-            .where(
-              and(
-                eq(tasks.municipalityId, current.municipalityId),
-                eq(tasks.competence, targetAnual),
-                eq(tasks.year, current.year)
-              )
-            );
-
-          const anualTaskMap = new Map<string, typeof tasks.$inferSelect>();
-          for (const at of existingAnualTasks) {
-            anualTaskMap.set(at.obligationCode, at);
-          }
-
-          for (const obl of targetObligations) {
-            const atTask = anualTaskMap.get(obl);
-            if (atTask) {
-              // Task exists, only update if it is currently 'Falta XML'
-              if (atTask.status === 'Falta XML') {
-                await tx.update(tasks)
-                  .set({ status: 'Não iniciado', updatedAt: new Date() })
-                  .where(eq(tasks.id, atTask.id));
-
-                historyInserts.push({
-                  taskId: atTask.id,
-                  fieldChanged: 'status',
-                  oldValue: atTask.status,
-                  newValue: 'Não iniciado',
-                  userWhoChanged: data.userWhoChanged || null,
-                  observation: data.observation || null,
-                });
-              }
-            } else {
-              // Task does not exist, insert it!
-              const res = await tx.insert(tasks)
-                .values({
-                  municipalityId: current.municipalityId,
-                  obligationCode: obl,
-                  competence: targetAnual,
-                  year: current.year,
-                  status: 'Não iniciado',
-                  siopsMembros: obl === 'SIOPS' ? 'Não Solicitado' : null,
-                  siopeFolha: obl === 'SIOPE' ? 'Não Solicitado' : null,
-                  updatedAt: new Date(),
-                });
-
-              const insertId = (res[0] as any).insertId;
-              historyInserts.push({
-                taskId: insertId,
-                fieldChanged: 'status',
-                oldValue: 'Falta XML',
-                newValue: 'Não iniciado',
-                userWhoChanged: data.userWhoChanged || null,
-                observation: data.observation || null,
-              });
-            }
-          }
-        }
-      } else {
-        // Standard non-replication behavior
-        // Check status change
-        if (data.status !== undefined && data.status !== current.status) {
-          updateData.status = data.status;
-          historyInserts.push({
-            taskId,
-            fieldChanged: 'status',
-            oldValue: current.status,
-            newValue: data.status,
-            userWhoChanged: data.userWhoChanged || null,
-            observation: data.observation || null,
-          });
+      const targetBimester = monthToBimester[current.competence];
+      if (targetBimester) {
+        for (const code of ['RREO', 'SIOPE', 'SIOPS']) {
+          await ensureTaskStatus(connection, Number(current.municipality_id), code, targetBimester, Number(current.year), 'Não iniciado', data.userWhoChanged, data.observation);
         }
       }
 
-      // Check SIOPS Membros change
-      if (data.siopsMembros !== undefined && data.siopsMembros !== current.siopsMembros) {
-        updateData.siopsMembros = data.siopsMembros;
-        historyInserts.push({
-          taskId,
-          fieldChanged: 'siopsMembros',
-          oldValue: current.siopsMembros,
-          newValue: data.siopsMembros,
-          userWhoChanged: data.userWhoChanged || null,
-          observation: data.observation || null,
-        });
+      const monthToQuadrimester: Record<string, string> = {
+        'Abril': '1º Quadrimestre',
+        'Agosto': '2º Quadrimestre',
+        'Dezembro': '3º Quadrimestre',
+      };
+      const targetQuadrimester = monthToQuadrimester[current.competence];
+      if (targetQuadrimester) {
+        await ensureTaskStatus(connection, Number(current.municipality_id), 'RGF', targetQuadrimester, Number(current.year), 'Não iniciado', data.userWhoChanged, data.observation);
       }
 
-      // Check SIOPE Folha change
-      if (data.siopeFolha !== undefined && data.siopeFolha !== current.siopeFolha) {
-        updateData.siopeFolha = data.siopeFolha;
-        historyInserts.push({
-          taskId,
-          fieldChanged: 'siopeFolha',
-          oldValue: current.siopeFolha,
-          newValue: data.siopeFolha,
-          userWhoChanged: data.userWhoChanged || null,
-          observation: data.observation || null,
-        });
+      if (current.competence === 'Encerramento') {
+        await ensureTaskStatus(connection, Number(current.municipality_id), 'DCA', 'Anual', Number(current.year), 'Não iniciado', data.userWhoChanged, data.observation);
       }
+    } else if (data.status !== undefined && data.status !== current.status) {
+      currentUpdate.status = data.status;
+      await insertHistory(connection, taskId, 'status', current.status, data.status, data.userWhoChanged, data.observation);
+    }
 
-      // Perform updates for the current task if there are changes
-      if (Object.keys(updateData).length > 1) {
-        await tx.update(tasks).set(updateData).where(eq(tasks.id, taskId));
-      }
+    if (data.siopsMembros !== undefined && data.siopsMembros !== current.siops_membros) {
+      currentUpdate.siops_membros = data.siopsMembros;
+      await insertHistory(connection, taskId, 'siopsMembros', current.siops_membros, data.siopsMembros, data.userWhoChanged, data.observation);
+    }
 
-      // Record history
-      if (historyInserts.length > 0) {
-        await tx.insert(history).values(historyInserts);
-      }
+    if (data.siopeFolha !== undefined && data.siopeFolha !== current.siope_folha) {
+      currentUpdate.siope_folha = data.siopeFolha;
+      await insertHistory(connection, taskId, 'siopeFolha', current.siope_folha, data.siopeFolha, data.userWhoChanged, data.observation);
+    }
 
-      const updated = await tx.select().from(tasks).where(eq(tasks.id, taskId));
-      return updated[0];
-    });
+    if (Object.keys(currentUpdate).length > 0) {
+      const allowedFields = ['status', 'siops_membros', 'siope_folha'];
+      const fields = Object.keys(currentUpdate).filter((field) => allowedFields.includes(field));
+      const values = fields.map((field) => currentUpdate[field]);
+      await connection.query(
+        `UPDATE tasks SET ${fields.map((field) => `${field} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [...values, taskId]
+      );
+    }
+
+    await connection.commit();
+    const updated = await fetchTask(connection, taskId);
+    return mapTask(updated);
   } catch (error) {
+    await connection.rollback();
     console.error('Error in updateTaskDetails:', error);
     throw new Error('Database task update transaction failed.', { cause: error });
+  } finally {
+    connection.release();
   }
 }
 
-// History fetcher
 export async function getTaskHistory(taskId: number) {
-  try {
-    return await db.select()
-      .from(history)
-      .where(eq(history.taskId, taskId))
-      .orderBy(history.createdAt);
-  } catch (error) {
-    console.error('Error in getTaskHistory:', error);
-    throw new Error('Database history query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM history WHERE task_id = ? ORDER BY created_at', [taskId]);
+  return rows.map(mapHistory);
 }
 
 export async function updateHistoryEntry(id: number, data: {
@@ -690,86 +443,48 @@ export async function updateHistoryEntry(id: number, data: {
   userWhoChanged?: string | null;
   observation?: string | null;
 }) {
-  try {
-    const existing = await db.select().from(history).where(eq(history.id, id)).limit(1);
-    if (existing.length === 0) {
-      throw new Error(`History entry with ID ${id} not found.`);
-    }
-    const hRecord = existing[0];
-
-    await db.update(history)
-      .set({
-        oldValue: data.oldValue,
-        newValue: data.newValue,
-        userWhoChanged: data.userWhoChanged,
-        observation: data.observation,
-      })
-      .where(eq(history.id, id));
-
-    // Also update the main task with the corrected value in the database
-    if (hRecord.fieldChanged === 'status' && data.newValue) {
-      await db.update(tasks)
-        .set({ status: data.newValue })
-        .where(eq(tasks.id, hRecord.taskId));
-    } else if (hRecord.fieldChanged === 'siopsMembros' && data.newValue) {
-      await db.update(tasks)
-        .set({ siopsMembros: data.newValue })
-        .where(eq(tasks.id, hRecord.taskId));
-    } else if (hRecord.fieldChanged === 'siopeFolha' && data.newValue) {
-      await db.update(tasks)
-        .set({ siopeFolha: data.newValue })
-        .where(eq(tasks.id, hRecord.taskId));
-    }
-
-    const updated = await db.select().from(history).where(eq(history.id, id)).limit(1);
-    return updated[0];
-  } catch (error) {
-    console.error('Error in updateHistoryEntry:', error);
-    throw new Error('Database history update failed.', { cause: error });
+  const [existingRows] = await pool.query<Row[]>('SELECT * FROM history WHERE id = ? LIMIT 1', [id]);
+  const existing = existingRows[0];
+  if (!existing) {
+    throw new Error(`History entry with ID ${id} not found.`);
   }
+
+  await pool.query(
+    'UPDATE history SET old_value = ?, new_value = ?, user_who_changed = ?, observation = ? WHERE id = ?',
+    [data.oldValue, data.newValue, data.userWhoChanged, data.observation, id]
+  );
+
+  const fieldMap: Record<string, string> = {
+    status: 'status',
+    siopsMembros: 'siops_membros',
+    siopeFolha: 'siope_folha',
+  };
+  const taskColumn = fieldMap[existing.field_changed];
+  if (taskColumn && data.newValue) {
+    await pool.query(`UPDATE tasks SET ${taskColumn} = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [data.newValue, existing.task_id]);
+  }
+
+  const [rows] = await pool.query<Row[]>('SELECT * FROM history WHERE id = ? LIMIT 1', [id]);
+  return mapHistory(rows[0]);
 }
 
-// Comments helpers
 export async function getTaskComments(taskId: number) {
-  try {
-    return await db.select()
-      .from(comments)
-      .where(eq(comments.taskId, taskId))
-      .orderBy(comments.createdAt);
-  } catch (error) {
-    console.error('Error in getTaskComments:', error);
-    throw new Error('Database comments query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM comments WHERE task_id = ? ORDER BY created_at', [taskId]);
+  return rows.map(mapComment);
 }
 
 export async function addTaskComment(taskId: number, authorName: string, text: string) {
-  try {
-    const result = await db.insert(comments)
-      .values({
-        taskId,
-        authorName,
-        text,
-      });
-    const insertId = (result[0] as any).insertId;
-    const inserted = await db.select().from(comments).where(eq(comments.id, insertId)).limit(1);
-    return inserted[0];
-  } catch (error) {
-    console.error('Error in addTaskComment:', error);
-    throw new Error('Database insert comment failed.', { cause: error });
-  }
+  const [result] = await pool.query<any>(
+    'INSERT INTO comments (task_id, author_name, text) VALUES (?, ?, ?)',
+    [taskId, authorName, text]
+  );
+  const [rows] = await pool.query<Row[]>('SELECT * FROM comments WHERE id = ? LIMIT 1', [result.insertId]);
+  return mapComment(rows[0]);
 }
 
-// Attachments helpers
 export async function getTaskAttachments(taskId: number) {
-  try {
-    return await db.select()
-      .from(attachments)
-      .where(eq(attachments.taskId, taskId))
-      .orderBy(attachments.uploadedAt);
-  } catch (error) {
-    console.error('Error in getTaskAttachments:', error);
-    throw new Error('Database attachments query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM attachments WHERE task_id = ? ORDER BY uploaded_at', [taskId]);
+  return rows.map(mapAttachment);
 }
 
 export async function addAttachment(data: {
@@ -777,52 +492,28 @@ export async function addAttachment(data: {
   fileName: string;
   fileType: string;
   fileSize: number;
-  fileData: string; // Base64
+  fileData: string;
 }) {
-  try {
-    const result = await db.insert(attachments)
-      .values({
-        taskId: data.taskId,
-        fileName: data.fileName,
-        fileType: data.fileType,
-        fileSize: data.fileSize,
-        fileData: data.fileData,
-      });
-    const insertId = (result[0] as any).insertId;
-    const inserted = await db.select().from(attachments).where(eq(attachments.id, insertId)).limit(1);
-    return inserted[0];
-  } catch (error) {
-    console.error('Error in addAttachment:', error);
-    throw new Error('Database insert attachment failed.', { cause: error });
-  }
+  const [result] = await pool.query<any>(
+    `INSERT INTO attachments (task_id, file_name, file_type, file_size, file_data)
+     VALUES (?, ?, ?, ?, ?)`,
+    [data.taskId, data.fileName, data.fileType, data.fileSize, data.fileData]
+  );
+  const [rows] = await pool.query<Row[]>('SELECT * FROM attachments WHERE id = ? LIMIT 1', [result.insertId]);
+  return mapAttachment(rows[0]);
 }
 
 export async function getAttachmentById(id: number) {
-  try {
-    const result = await db.select().from(attachments).where(eq(attachments.id, id));
-    return result[0] || null;
-  } catch (error) {
-    console.error('Error in getAttachmentById:', error);
-    throw new Error('Database query attachment failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM attachments WHERE id = ? LIMIT 1', [id]);
+  return rows[0] ? mapAttachment(rows[0]) : null;
 }
 
-// Fetch all tasks for dashboard statistics
 export async function getAllTasksForStats() {
-  try {
-    return await db.select().from(tasks);
-  } catch (error) {
-    console.error('Error in getAllTasksForStats:', error);
-    throw new Error('Database statistics query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM tasks');
+  return rows.map(mapTask);
 }
 
-// Fetch all history for stats calculations
 export async function getAllHistory() {
-  try {
-    return await db.select().from(history);
-  } catch (error) {
-    console.error('Error in getAllHistory:', error);
-    throw new Error('Database history query failed.', { cause: error });
-  }
+  const [rows] = await pool.query<Row[]>('SELECT * FROM history');
+  return rows.map(mapHistory);
 }
