@@ -1,0 +1,209 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "uid": "admin_uid_metabit_2026",
+      "email": "comercialmetabit@gmail.com",
+      "password": "$2b$10$wdrQwCqhin0oaHeBZ.eIz.KGkbIUePgUnP6yGPZrjzg65hP4cNhCy",
+      "name": "Administrador Metabit",
+      "employeeName": "Administrador",
+      "createdAt": "2026-07-06T19:28:34.463Z"
+    }
+  ],
+  "municipalities": [
+    {
+      "id": 1,
+      "name": "ARCO-ÍRIS",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@arcoiris.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.158Z"
+    },
+    {
+      "id": 2,
+      "name": "ARTUR NOG.",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@arturnog.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 3,
+      "name": "BASTOS",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@bastos.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 4,
+      "name": "CATANDUVA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@catanduva.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 5,
+      "name": "CÂNDIDO M",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@candidom.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 6,
+      "name": "CANDIDO R.",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@candidor.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 7,
+      "name": "CRUZÁLIA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@cruzalia.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 8,
+      "name": "HERCULAN.",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@herculan.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 9,
+      "name": "JABOTIC.",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@jabotic.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 10,
+      "name": "LUIZIANIA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@luiziania.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 11,
+      "name": "PIRASSUN.",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@pirassun.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 12,
+      "name": "POMPÉIA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@pompeia.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 13,
+      "name": "QUEIROZ",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@queiroz.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 14,
+      "name": "QUINTANA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@quintana.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 15,
+      "name": "RINCÃO",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@rincao.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 16,
+      "name": "SERRANA",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@serrana.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 17,
+      "name": "TUPÃ",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@tupa.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 18,
+      "name": "S.J.DUAS PONTES",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@sjduaspontes.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    },
+    {
+      "id": 19,
+      "name": "TAGUAÍ",
+      "state": "SP",
+      "responsible": "Não Definido",
+      "phone": "(11) 99999-9999",
+      "email": "contato@taguai.sp.gov.br",
+      "observations": "Importado via solicitação",
+      "createdAt": "2026-07-06T20:09:25.159Z"
+    }
+  ],
+  "tasks": [],
+  "history": [],
+  "comments": [],
+  "attachments": []
+}

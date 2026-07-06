@@ -120,11 +120,25 @@ async function seed() {
     if ((existingMuns as any[]).length === 0) {
       console.log('Seeding default municipalities...');
       const defaultMuns = [
-        ['Goiânia', 'GO', 'Keila', '(62) 99999-9999', 'goiania@municipio.go.gov.br', 'Município Polo da Região'],
-        ['Aparecida de Goiânia', 'GO', 'Simão', '(62) 88888-8888', 'aparecida@municipio.go.gov.br', 'Atendimento prioritário'],
-        ['Anápolis', 'GO', 'Mirian', '(62) 77777-7777', 'anapolis@municipio.go.gov.br', 'Polo Industrial e Logístico'],
-        ['Rio Verde', 'GO', 'Richelly', '(64) 96666-6666', 'rioverde@municipio.go.gov.br', 'Destaque no Agronegócio'],
-        ['Luziânia', 'GO', 'Gabriel', '(61) 95555-5555', 'luziania@municipio.go.gov.br', 'Região do Entorno do DF']
+        ['ARCO-ÍRIS', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@arcoiris.sp.gov.br', 'Importado via solicitação'],
+        ['ARTUR NOG.', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@arturnog.sp.gov.br', 'Importado via solicitação'],
+        ['BASTOS', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@bastos.sp.gov.br', 'Importado via solicitação'],
+        ['CATANDUVA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@catanduva.sp.gov.br', 'Importado via solicitação'],
+        ['CÂNDIDO M', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@candidom.sp.gov.br', 'Importado via solicitação'],
+        ['CANDIDO R.', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@candidor.sp.gov.br', 'Importado via solicitação'],
+        ['CRUZÁLIA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@cruzalia.sp.gov.br', 'Importado via solicitação'],
+        ['HERCULAN.', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@herculan.sp.gov.br', 'Importado via solicitação'],
+        ['JABOTIC.', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@jabotic.sp.gov.br', 'Importado via solicitação'],
+        ['LUIZIANIA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@luiziania.sp.gov.br', 'Importado via solicitação'],
+        ['PIRASSUN.', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@pirassun.sp.gov.br', 'Importado via solicitação'],
+        ['POMPÉIA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@pompeia.sp.gov.br', 'Importado via solicitação'],
+        ['QUEIROZ', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@queiroz.sp.gov.br', 'Importado via solicitação'],
+        ['QUINTANA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@quintana.sp.gov.br', 'Importado via solicitação'],
+        ['RINCÃO', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@rincao.sp.gov.br', 'Importado via solicitação'],
+        ['SERRANA', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@serrana.sp.gov.br', 'Importado via solicitação'],
+        ['TUPÃ', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@tupa.sp.gov.br', 'Importado via solicitação'],
+        ['S.J.DUAS PONTES', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@sjduaspontes.sp.gov.br', 'Importado via solicitação'],
+        ['TAGUAÍ', 'SP', 'Não Definido', '(11) 99999-9999', 'contato@taguai.sp.gov.br', 'Importado via solicitação']
       ];
 
       for (const mun of defaultMuns) {
@@ -133,7 +147,7 @@ async function seed() {
           mun
         );
       }
-      console.log('Seeded 5 default municipalities successfully.');
+      console.log('Seeded 19 default municipalities successfully.');
     } else {
       console.log('Municipalities table is already populated.');
     }

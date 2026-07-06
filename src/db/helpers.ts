@@ -24,8 +24,7 @@ export async function isDbAvailable(): Promise<boolean> {
       useLocalFallback = false;
       return true;
     } catch (err: any) {
-      console.warn('⚠️ MySQL connection failed. Falling back to local JSON database storage.');
-      console.warn('Reason:', err?.message || err);
+      // Gracefully switch to local JSON database storage fallback
       useLocalFallback = true;
       return false;
     }
