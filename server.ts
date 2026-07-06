@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
 import { isTaskOverdue } from './src/types.ts';
 import {
+  getOrCreateUser,
   updateUserEmployee,
   getMunicipalities,
   createMunicipality,
@@ -62,9 +63,6 @@ async function startServer() {
         name,
         employeeName: finalEmployeeName,
       });
-      if (!dbUser) {
-        return res.status(500).json({ error: 'Não foi possível criar o usuário.' });
-      }
 
       const token = jwt.sign(
         { uid: dbUser.uid, email: dbUser.email, name: dbUser.name },
@@ -97,18 +95,13 @@ async function startServer() {
         return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
       }
 
-      const publicUser = await getUserByUid(dbUser.uid);
-      if (!publicUser) {
-        return res.status(401).json({ error: 'Usuário inativo ou não encontrado.' });
-      }
-
       const token = jwt.sign(
-        { uid: publicUser.uid, email: publicUser.email, name: publicUser.name },
+        { uid: dbUser.uid, email: dbUser.email, name: dbUser.name },
         JWT_SECRET,
         { expiresIn: '7d' }
       );
 
-      res.json({ token, user: publicUser });
+      res.json({ token, user: dbUser });
     } catch (error: any) {
       console.error('Login route error:', error);
       res.status(500).json({ error: error.message });
@@ -131,11 +124,6 @@ async function startServer() {
       console.error('Auth Me route error:', error);
       res.status(500).json({ error: error.message });
     }
-  });
-
-  // Auth logout. JWT sessions are stateless, so the client discards the token.
-  app.post('/api/auth/logout', requireAuth, async (_req: AuthRequest, res) => {
-    res.json({ ok: true });
   });
 
   // Link current user to an employee

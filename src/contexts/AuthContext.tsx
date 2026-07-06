@@ -1,28 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export interface DatabaseUser {
+export interface PostgresUser {
   id: number;
   uid: string;
   email: string;
   name: string | null;
   employeeName: string | null;
-  roles?: string[];
-  permissions?: string[];
   createdAt: string;
 }
 
+// Keeping the interface type exactly the same for seamless compatibility across existing components
 export interface CustomUser {
   uid: string;
   email: string;
   name: string | null;
-  roles?: string[];
-  permissions?: string[];
 }
 
 interface AuthContextType {
   user: CustomUser | null;
   token: string | null;
-  profile: DatabaseUser | null;
+  postgresUser: PostgresUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, passwordPlain: string, name?: string, employeeName?: string) => Promise<void>;
@@ -37,7 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<CustomUser | null>(null);
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [profile, setProfile] = useState<DatabaseUser | null>(null);
+  const [postgresUser, setPostgresUser] = useState<PostgresUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -70,23 +67,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               uid: data.uid,
               email: data.email,
               name: data.name,
-              roles: data.roles || [],
-              permissions: data.permissions || [],
             });
-            setProfile(data);
+            setPostgresUser(data);
           } else {
             // Token is invalid/expired
             localStorage.removeItem('token');
             setToken(null);
             setUser(null);
-            setProfile(null);
+            setPostgresUser(null);
           }
         } catch (err) {
           console.error('Error loading profile on mount:', err);
-          localStorage.removeItem('token');
-          setToken(null);
-          setUser(null);
-          setProfile(null);
         }
       }
       setLoading(false);
@@ -118,10 +109,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: data.user.uid,
         email: data.user.email,
         name: data.user.name,
-        roles: data.user.roles || [],
-        permissions: data.user.permissions || [],
       });
-      setProfile(data.user);
+      setPostgresUser(data.user);
     } catch (err) {
       console.error('Login error:', err);
       throw err;
@@ -153,10 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: data.user.uid,
         email: data.user.email,
         name: data.user.name,
-        roles: data.user.roles || [],
-        permissions: data.user.permissions || [],
       });
-      setProfile(data.user);
+      setPostgresUser(data.user);
     } catch (err) {
       console.error('Register error:', err);
       throw err;
@@ -168,19 +155,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setLoading(true);
     try {
-      const currentToken = token || localStorage.getItem('token');
-      if (currentToken) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${currentToken}`,
-          },
-        }).catch(() => undefined);
-      }
       localStorage.removeItem('token');
       setToken(null);
       setUser(null);
-      setProfile(null);
+      setPostgresUser(null);
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
@@ -202,7 +180,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(errData.error || 'Falha ao vincular funcionário.');
       }
       const updatedUser = await response.json();
-      setProfile(updatedUser);
+      setPostgresUser(updatedUser);
     } catch (err: any) {
       console.error('Error linking employee:', err);
       throw err;
@@ -210,7 +188,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, profile, loading, login, register, logout, refreshToken, fetchWithAuth, linkEmployee }}>
+    <AuthContext.Provider value={{ user, token, postgresUser, loading, login, register, logout, refreshToken, fetchWithAuth, linkEmployee }}>
       {children}
     </AuthContext.Provider>
   );

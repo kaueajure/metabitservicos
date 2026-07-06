@@ -1,34 +1,20 @@
-# MunicipioCloud
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+</div>
 
-Sistema para acompanhamento anual das obrigacoes municipais, com banco MySQL e autenticacao propria por e-mail/senha.
+# Run and deploy your AI Studio app
 
-## Requisitos locais
+This contains everything you need to run your app locally.
 
-- Node.js 20+
-- MySQL 8+ ou MariaDB compativel
+View your app in AI Studio: https://ai.studio/apps/1ce495b9-105a-40ed-a6a0-41402922df00
 
-## Instalar
+## Run Locally
 
-1. Instale as dependencias:
+**Prerequisites:**  Node.js
+
+
+1. Install dependencies:
    `npm install`
-2. Copie `.env.example` para `.env` e ajuste os dados do MySQL.
-3. Crie o banco configurado em `DB_DATABASE`.
-4. Execute migrations e seeders:
-   `npm run db:setup`
-5. Rode a aplicacao localmente:
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
    `npm run dev`
-
-## Acesso inicial
-
-- E-mail: `comercialmetabit@gmail.com`
-- Senha: valor de `ADMIN_PASSWORD` no `.env` ou `admin` quando nao configurado.
-
-## Scripts de banco
-
-- `npm run db:migrate`: cria/atualiza a estrutura MySQL.
-- `npm run db:seed`: popula perfis, permissoes, administrador e dados minimos.
-- `npm run db:setup`: executa migrations e seeders em sequencia.
-
-## Producao
-
-Para hospedagem compartilhada, gere o build estatico com `npm run build` e publique o conteudo de `dist` junto com a pasta `api`, a pasta `database` e um arquivo `.env` configurado para o MySQL da hospedagem.
