@@ -26,6 +26,8 @@ import {
   getUserByEmail,
   getUserByUid,
   createUser,
+  getEmployees,
+  createEmployee,
 } from './src/db/helpers.ts';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'metabit_secret_key_123';
@@ -143,6 +145,29 @@ async function startServer() {
 
       const updatedUser = await updateUserEmployee(uid, employeeName || null);
       res.json(updatedUser);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Employees API Endpoints
+  app.get('/api/employees', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const list = await getEmployees();
+      res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/employees', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const { name } = req.body;
+      if (!name || !name.trim()) {
+        return res.status(400).json({ error: 'O nome do funcionário é obrigatório.' });
+      }
+      const list = await createEmployee(name);
+      res.json(list);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

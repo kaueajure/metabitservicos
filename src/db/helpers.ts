@@ -1766,3 +1766,59 @@ export async function getAllHistory() {
     }
   }
 }
+
+// Employees helper functions
+export async function getEmployees(): Promise<string[]> {
+  try {
+    const local = readLocalDb();
+    return local.employees || [
+      'Administrador',
+      'Simão',
+      'Keila',
+      'Mirian',
+      'Richelly',
+      'Gabriel',
+      'Adriano',
+      'Tiago'
+    ];
+  } catch (error) {
+    console.error('Error in getEmployees:', error);
+    return [
+      'Administrador',
+      'Simão',
+      'Keila',
+      'Mirian',
+      'Richelly',
+      'Gabriel',
+      'Adriano',
+      'Tiago'
+    ];
+  }
+}
+
+export async function createEmployee(name: string): Promise<string[]> {
+  try {
+    const local = readLocalDb();
+    if (!local.employees) {
+      local.employees = [
+        'Administrador',
+        'Simão',
+        'Keila',
+        'Mirian',
+        'Richelly',
+        'Gabriel',
+        'Adriano',
+        'Tiago'
+      ];
+    }
+    const cleanName = name.trim();
+    if (cleanName && !local.employees.includes(cleanName)) {
+      local.employees.push(cleanName);
+      writeLocalDb(local);
+    }
+    return local.employees;
+  } catch (error) {
+    console.error('Error in createEmployee:', error);
+    throw new Error('Erro ao cadastrar funcionário.');
+  }
+}

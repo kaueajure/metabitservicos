@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api.ts';
 import { Plus, Search, Edit2, Trash2, Loader2, Mail, Phone, User, AlertCircle, X, ChevronRight, FileText, ChevronDown, Copy } from 'lucide-react';
 import { Municipality } from '../types.ts';
+import { useAuth } from '../contexts/AuthContext.tsx';
 
 export const EMPLOYEES = [
   'Administrador',
@@ -67,6 +68,33 @@ interface MunicipalitiesViewProps {
 }
 
 export const MunicipalitiesView: React.FC<MunicipalitiesViewProps> = ({ token, onRefreshSpreadsheet }) => {
+  const { employees, registerEmployee } = useAuth();
+  const [newEmpName, setNewEmpName] = useState('');
+  const [modalNewEmpName, setModalNewEmpName] = useState('');
+  const [employeeError, setEmployeeError] = useState<string | null>(null);
+
+  const handleAddEmployeeClick = async () => {
+    if (!newEmpName.trim()) return;
+    try {
+      setEmployeeError(null);
+      await registerEmployee(newEmpName.trim());
+      setNewEmpName('');
+    } catch (err: any) {
+      setEmployeeError(err.message || 'Erro ao cadastrar funcionário.');
+    }
+  };
+
+  const handleModalAddEmployee = async () => {
+    if (!modalNewEmpName.trim()) return;
+    try {
+      setEmployeeError(null);
+      await registerEmployee(modalNewEmpName.trim());
+      setModalNewEmpName('');
+    } catch (err: any) {
+      setEmployeeError(err.message || 'Erro ao cadastrar funcionário.');
+    }
+  };
+
   const [muns, setMuns] = useState<Municipality[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -330,17 +358,46 @@ export const MunicipalitiesView: React.FC<MunicipalitiesViewProps> = ({ token, o
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-800">
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Cadastro de Municípios</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie os municípios, os responsáveis técnicos e suas informações de contato.</p>
         </div>
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg inline-flex items-center gap-2 cursor-pointer transition-colors"
-        >
-          <Plus size={16} /> Novo Município
-        </button>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Add Employee Inline Form */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 border border-gray-200 dark:border-gray-700 rounded-lg p-1 bg-white dark:bg-gray-850 shadow-xs">
+              <input
+                type="text"
+                placeholder="Novo funcionário..."
+                value={newEmpName}
+                onChange={(e) => setNewEmpName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddEmployeeClick();
+                }}
+                className="px-2.5 py-1 text-xs bg-transparent text-gray-900 dark:text-white placeholder-gray-400 focus:outline-hidden w-40"
+              />
+              <button
+                type="button"
+                onClick={handleAddEmployeeClick}
+                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 dark:bg-blue-950/40 dark:hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white font-bold rounded text-xs transition-all cursor-pointer flex items-center gap-1"
+              >
+                <Plus size={12} /> Cadastrar
+              </button>
+            </div>
+            {employeeError && (
+              <span className="text-[10px] text-red-500 font-semibold">{employeeError}</span>
+            )}
+          </div>
+
+          <button
+            onClick={openAddModal}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg inline-flex items-center gap-2 cursor-pointer text-xs transition-colors shadow-xs h-[38px]"
+          >
+            <Plus size={16} /> Novo Município
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}
@@ -521,9 +578,35 @@ export const MunicipalitiesView: React.FC<MunicipalitiesViewProps> = ({ token, o
 
               {/* Technical Staff list per service */}
               <div className="space-y-3.5 border-t border-gray-100 dark:border-gray-700 pt-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                  Responsáveis por Serviço (Funcionários)
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    Responsáveis por Serviço (Funcionários)
+                  </p>
+                  
+                  {/* Inline add employee inside the modal */}
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Adicionar funcionário..."
+                      value={modalNewEmpName}
+                      onChange={(e) => setModalNewEmpName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleModalAddEmployee();
+                        }
+                      }}
+                      className="px-2 py-1 text-[10px] border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-850 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-hidden w-36"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleModalAddEmployee}
+                      className="px-2 py-1 bg-blue-50 hover:bg-blue-600 dark:bg-blue-950/40 dark:hover:bg-blue-600 text-blue-600 dark:text-blue-400 hover:text-white font-bold rounded text-[10px] transition-colors cursor-pointer"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   {SERVICES.map((srv) => {
                     const isActive = formActiveServices[srv.code] !== false;
@@ -566,7 +649,7 @@ export const MunicipalitiesView: React.FC<MunicipalitiesViewProps> = ({ token, o
                               onClick={() => setOpenDropdown(null)}
                             />
                             <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-40 max-h-44 overflow-y-auto p-1.5 space-y-0.5 text-xs">
-                              {EMPLOYEES.map((emp) => {
+                              {employees.map((emp) => {
                                 const isChecked = isEmployeeChecked(srv.code, emp);
                                 return (
                                   <label

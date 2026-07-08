@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api.ts';
 import { X, Loader2, History, MessageSquare, Paperclip, Send, Download, FileCode, CheckSquare, Clock, Edit2, Check } from 'lucide-react';
 import { Task, HistoryRecord, Comment, Attachment, StatusType, SIOPSMembrosType, SIOPEFolhaType, STATUS_COLORS, STATUS_BG_COLORS } from '../types.ts';
-import { EMPLOYEES } from './MunicipalitiesView.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 
 interface CellEditModalProps {
@@ -20,7 +19,7 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
   onClose,
   onUpdate,
 }) => {
-  const { postgresUser, user } = useAuth();
+  const { postgresUser, user, employees } = useAuth();
   const [activeTab, setActiveTab] = useState<'alterar' | 'historico' | 'comentarios'>('alterar');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -198,6 +197,11 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
 
     if (!isStatusChanged && !isMembrosChanged && !isFolhaChanged) {
       alert('Nenhuma alteração foi realizada.');
+      return;
+    }
+
+    if (!changeName.trim()) {
+      alert('Por favor, informe ou selecione o seu nome para registrar a alteração no histórico.');
       return;
     }
 
@@ -510,7 +514,7 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-bold uppercase tracking-wider text-amber-800/80 dark:text-amber-400/85 mb-1">
-                        Seu Nome (Opcional)
+                        Seu Nome *
                       </label>
                       <select
                         value={changeName}
@@ -518,7 +522,7 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
                         className="w-full px-3 py-2 border border-amber-200 dark:border-amber-900 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 cursor-pointer"
                       >
                         <option value="">- Selecione seu nome -</option>
-                        {EMPLOYEES.map((emp) => (
+                        {employees.map((emp) => (
                           <option key={emp} value={emp}>{emp}</option>
                         ))}
                       </select>
@@ -656,11 +660,11 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
                                       className="w-full text-xs p-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white"
                                     >
                                       <option value="">- Selecione -</option>
-                                      {EMPLOYEES.map((emp) => (
+                                      {employees.map((emp) => (
                                         <option key={emp} value={emp}>{emp}</option>
                                       ))}
-                                      {/* If current value is not in EMPLOYEES and not empty, list it */}
-                                      {editUserWhoChanged && !EMPLOYEES.includes(editUserWhoChanged) && (
+                                      {/* If current value is not in employees and not empty, list it */}
+                                      {editUserWhoChanged && !employees.includes(editUserWhoChanged) && (
                                         <option value={editUserWhoChanged}>{editUserWhoChanged}</option>
                                       )}
                                       <option value="__custom__">Digitar outro...</option>
@@ -789,7 +793,7 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
                       className="w-1/3 px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-hidden focus:ring-1 focus:ring-blue-500 cursor-pointer"
                     >
                       <option value="">Seu nome</option>
-                      {EMPLOYEES.map((emp) => (
+                      {employees.map((emp) => (
                         <option key={emp} value={emp}>{emp}</option>
                       ))}
                     </select>

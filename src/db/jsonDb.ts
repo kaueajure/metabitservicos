@@ -11,6 +11,7 @@ export interface LocalDbData {
   history: any[];
   comments: any[];
   attachments: any[];
+  employees?: string[];
 }
 
 function getInitialData(): LocalDbData {
@@ -32,7 +33,7 @@ function getInitialData(): LocalDbData {
         id: 1,
         name: 'ARCO-ÍRIS',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@arcoiris.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -42,7 +43,7 @@ function getInitialData(): LocalDbData {
         id: 2,
         name: 'ARTUR NOG.',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@arturnog.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -52,7 +53,7 @@ function getInitialData(): LocalDbData {
         id: 3,
         name: 'BASTOS',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@bastos.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -62,7 +63,7 @@ function getInitialData(): LocalDbData {
         id: 4,
         name: 'CATANDUVA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@catanduva.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -72,7 +73,7 @@ function getInitialData(): LocalDbData {
         id: 5,
         name: 'CÂNDIDO M',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@candidom.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -82,7 +83,7 @@ function getInitialData(): LocalDbData {
         id: 6,
         name: 'CANDIDO R.',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@candidor.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -92,7 +93,7 @@ function getInitialData(): LocalDbData {
         id: 7,
         name: 'CRUZÁLIA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@cruzalia.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -102,7 +103,7 @@ function getInitialData(): LocalDbData {
         id: 8,
         name: 'HERCULAN.',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@herculan.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -112,7 +113,7 @@ function getInitialData(): LocalDbData {
         id: 9,
         name: 'JABOTIC.',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@jabotic.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -122,7 +123,7 @@ function getInitialData(): LocalDbData {
         id: 10,
         name: 'LUIZIANIA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@luiziania.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -132,7 +133,7 @@ function getInitialData(): LocalDbData {
         id: 11,
         name: 'PIRASSUN.',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@pirassun.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -142,7 +143,7 @@ function getInitialData(): LocalDbData {
         id: 12,
         name: 'POMPÉIA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@pompeia.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -152,7 +153,7 @@ function getInitialData(): LocalDbData {
         id: 13,
         name: 'QUEIROZ',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@queiroz.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -162,7 +163,7 @@ function getInitialData(): LocalDbData {
         id: 14,
         name: 'QUINTANA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@quintana.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -172,7 +173,7 @@ function getInitialData(): LocalDbData {
         id: 15,
         name: 'RINCÃO',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@rincao.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -182,7 +183,7 @@ function getInitialData(): LocalDbData {
         id: 16,
         name: 'SERRANA',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@serrana.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -192,7 +193,7 @@ function getInitialData(): LocalDbData {
         id: 17,
         name: 'TUPÃ',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@tupa.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -202,7 +203,7 @@ function getInitialData(): LocalDbData {
         id: 18,
         name: 'S.J.DUAS PONTES',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@sjduaspontes.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -212,7 +213,7 @@ function getInitialData(): LocalDbData {
         id: 19,
         name: 'TAGUAÍ',
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: 'contato@taguai.sp.gov.br',
         observations: 'Importado via solicitação',
@@ -223,6 +224,16 @@ function getInitialData(): LocalDbData {
     history: [],
     comments: [],
     attachments: [],
+    employees: [
+      'Administrador',
+      'Simão',
+      'Keila',
+      'Mirian',
+      'Richelly',
+      'Gabriel',
+      'Adriano',
+      'Tiago'
+    ]
   };
 }
 
@@ -234,7 +245,21 @@ export function readLocalDb(): LocalDbData {
       return initial;
     }
     const content = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    if (!parsed.employees) {
+      parsed.employees = [
+        'Administrador',
+        'Simão',
+        'Keila',
+        'Mirian',
+        'Richelly',
+        'Gabriel',
+        'Adriano',
+        'Tiago'
+      ];
+      fs.writeFileSync(DB_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+    }
+    return parsed;
   } catch (err) {
     console.error('Error reading local fallback DB file:', err);
     return getInitialData();

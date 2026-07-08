@@ -3,12 +3,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import { ThemeToggle } from './components/ThemeToggle.tsx';
 import { SpreadsheetView } from './components/SpreadsheetView.tsx';
 import { DashboardView } from './components/DashboardView.tsx';
-import { MunicipalitiesView, EMPLOYEES } from './components/MunicipalitiesView.tsx';
+import { MunicipalitiesView } from './components/MunicipalitiesView.tsx';
 import { Loader2, LogOut, Table, BarChart3, Building2, UserCheck, ShieldCheck } from 'lucide-react';
 
 function DashboardApp() {
-  const { user, token, postgresUser, logout, loading, linkEmployee } = useAuth();
+  const { user, token, postgresUser, logout, loading, linkEmployee, employees, registerEmployee } = useAuth();
   const [activeTab, setActiveTab] = useState<'planilha' | 'dashboard' | 'municipios'>('planilha');
+  const [showAddEmpInput, setShowAddEmpInput] = useState(false);
+  const [newSidebarEmpName, setNewSidebarEmpName] = useState('');
+  const [empRegisterError, setEmpRegisterError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('theme');
     // Force reset to light mode if it was dark to fulfill the user's explicit request immediately, default to false
@@ -231,13 +234,87 @@ function DashboardApp() {
                 className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-1 text-xs font-semibold text-gray-700 dark:text-gray-300 focus:outline-hidden cursor-pointer"
               >
                 <option value="">Não Vinculado</option>
-                {EMPLOYEES.map((emp) => (
+                {employees.map((emp) => (
                   <option key={emp} value={emp}>
                     {emp}
                   </option>
                 ))}
               </select>
             )}
+
+            {/* Quick add employee button / form */}
+            <div className="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-800">
+              {!showAddEmpInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAddEmpInput(true)}
+                  className="w-full text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center justify-center gap-1 py-1 px-2 bg-blue-50/60 dark:bg-blue-950/30 hover:bg-blue-100/60 dark:hover:bg-blue-950/60 rounded transition-colors cursor-pointer"
+                >
+                  + Cadastrar Novo Funcionário
+                </button>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      placeholder="Nome do funcionário..."
+                      value={newSidebarEmpName}
+                      onChange={(e) => setNewSidebarEmpName(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          if (!newSidebarEmpName.trim()) return;
+                          try {
+                            setEmpRegisterError(null);
+                            await registerEmployee(newSidebarEmpName.trim());
+                            await linkEmployee(newSidebarEmpName.trim());
+                            setNewSidebarEmpName('');
+                            setShowAddEmpInput(false);
+                          } catch (err: any) {
+                            setEmpRegisterError(err.message || 'Erro ao cadastrar.');
+                          }
+                        }
+                      }}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-hidden"
+                      autoFocus
+                    />
+                  </div>
+                  {empRegisterError && (
+                    <p className="text-[10px] text-red-500 font-semibold">{empRegisterError}</p>
+                  )}
+                  <div className="flex items-center gap-1 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddEmpInput(false);
+                        setNewSidebarEmpName('');
+                        setEmpRegisterError(null);
+                      }}
+                      className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-gray-700 dark:text-gray-400 font-semibold cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!newSidebarEmpName.trim()) return;
+                        try {
+                          setEmpRegisterError(null);
+                          await registerEmployee(newSidebarEmpName.trim());
+                          await linkEmployee(newSidebarEmpName.trim());
+                          setNewSidebarEmpName('');
+                          setShowAddEmpInput(false);
+                        } catch (err: any) {
+                          setEmpRegisterError(err.message || 'Erro ao cadastrar.');
+                        }
+                      }}
+                      className="px-2.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold cursor-pointer transition-colors"
+                    >
+                      Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-1">
@@ -317,7 +394,7 @@ function DashboardApp() {
 }
 
 function AuthForm() {
-  const { login, register, loading } = useAuth();
+  const { login, register, loading, employees } = useAuth();
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -438,7 +515,7 @@ function AuthForm() {
               className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-850 rounded px-3 py-2 text-xs focus:outline-hidden text-gray-700 dark:text-gray-300"
             >
               <option value="">Não Vincular</option>
-              {EMPLOYEES.map((emp) => (
+              {employees.map((emp) => (
                 <option key={emp} value={emp}>
                   {emp}
                 </option>

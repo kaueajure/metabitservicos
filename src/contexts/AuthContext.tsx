@@ -27,6 +27,9 @@ interface AuthContextType {
   refreshToken: (force?: boolean) => Promise<string | null>;
   fetchWithAuth: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   linkEmployee: (employeeName: string | null) => Promise<void>;
+  employees: string[];
+  fetchEmployees: () => Promise<void>;
+  registerEmployee: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
   const [postgresUser, setPostgresUser] = useState<PostgresUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState<string[]>([]);
 
   const fetchWithAuth = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const currentToken = token || localStorage.getItem('token');
@@ -84,6 +88,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadProfile();
+  }, [token]);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetchWithAuth('/api/employees');
+      if (response.ok) {
+        const data = await response.json();
+        setEmployees(data);
+      }
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    }
+  };
+
+  const registerEmployee = async (name: string) => {
+    try {
+      const response = await fetchWithAuth('/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao cadastrar funcionário.');
+      }
+      const data = await response.json();
+      setEmployees(data);
+    } catch (err: any) {
+      console.error('Error registering employee:', err);
+      throw err;
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchEmployees();
+    } else {
+      setEmployees([]);
+    }
   }, [token]);
 
   const login = async (email: string, password: string) => {
@@ -188,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, postgresUser, loading, login, register, logout, refreshToken, fetchWithAuth, linkEmployee }}>
+    <AuthContext.Provider value={{ user, token, postgresUser, loading, login, register, logout, refreshToken, fetchWithAuth, linkEmployee, employees, fetchEmployees, registerEmployee }}>
       {children}
     </AuthContext.Provider>
   );

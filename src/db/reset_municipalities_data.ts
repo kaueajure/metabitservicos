@@ -42,7 +42,7 @@ async function runReset() {
         id: index + 1,
         name: m.name,
         state: 'SP',
-        responsible: 'Não Definido',
+        responsible: 'Keila, Adriano, Mirian, Gabriel',
         phone: '(11) 99999-9999',
         email: m.email,
         observations: 'Importado via solicitação',
@@ -82,7 +82,7 @@ async function runReset() {
       for (const m of NEW_MUNS) {
         await pool.query(
           'INSERT INTO municipalities (name, state, responsible, phone, email, observations) VALUES (?, ?, ?, ?, ?, ?)',
-          [m.name, 'SP', 'Não Definido', '(11) 99999-9999', m.email, 'Importado via solicitação']
+          [m.name, 'SP', 'Keila, Adriano, Mirian, Gabriel', '(11) 99999-9999', m.email, 'Importado via solicitação']
         );
       }
       console.log('✅ MySQL database reset and seeded successfully.');
