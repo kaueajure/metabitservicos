@@ -483,6 +483,7 @@ async function startServer() {
       }
 
       const obligationStatusMap: Record<string, Record<string, number>> = {};
+      const obligationCompetenceStats: Record<string, Record<string, { Concluido: number; Pendente: number }>> = {};
       const municipalityStatusMap: Record<string, Record<string, number>> = {};
       const competenceStatusMap: Record<string, Record<string, number>> = {};
       const responsibleStatusMap: Record<string, { Concluido: number; Pendente: number; municipalities: Set<string> }> = {};
@@ -497,13 +498,22 @@ async function startServer() {
         const munName = mun?.name || 'Outro';
 
         const code = t.obligationCode;
+        const comp = t.competence;
         if (!obligationStatusMap[code]) {
           obligationStatusMap[code] = { 'Concluído': 0, 'Pendente': 0 };
         }
+        if (!obligationCompetenceStats[code]) {
+          obligationCompetenceStats[code] = {};
+        }
+        if (!obligationCompetenceStats[code][comp]) {
+          obligationCompetenceStats[code][comp] = { Concluido: 0, Pendente: 0 };
+        }
         if (t.status === 'Homologado' || t.status === 'Enviado') {
           obligationStatusMap[code]['Concluído']++;
+          obligationCompetenceStats[code][comp].Concluido++;
         } else {
           obligationStatusMap[code]['Pendente']++;
+          obligationCompetenceStats[code][comp].Pendente++;
         }
 
         if (!municipalityStatusMap[munName]) {
@@ -515,7 +525,6 @@ async function startServer() {
           municipalityStatusMap[munName]['Pendente']++;
         }
 
-        const comp = t.competence;
         if (!competenceStatusMap[comp]) {
           competenceStatusMap[comp] = { 'Concluído': 0, 'Pendente': 0 };
         }
@@ -599,6 +608,7 @@ async function startServer() {
         pctCompleted,
         pctPending,
         obligationStats: obligationStatusMap,
+        obligationCompetenceStats,
         municipalityStats: municipalityStatusMap,
         competenceStats: competenceStatusMap,
         responsibleStats,

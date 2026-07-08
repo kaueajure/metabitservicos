@@ -29,7 +29,7 @@ import {
   Activity,
   CheckCircle
 } from 'lucide-react';
-import { STATUS_COLORS, StatusType, OBLIGATIONS } from '../types.ts';
+import { STATUS_COLORS, StatusType, OBLIGATIONS, COMPETENCES } from '../types.ts';
 
 interface DashboardViewProps {
   token: string | null;
@@ -50,6 +50,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchEmployee, setSearchEmployee] = useState('');
+  const [selectedServicePeriods, setSelectedServicePeriods] = useState<Record<string, string>>({
+    MSC: 'Todos',
+    RREO: 'Todos',
+    RGF: 'Todos',
+    DCA: 'Todos',
+    SIOPE: 'Todos',
+    SIOPS: 'Todos',
+  });
 
   const fetchStats = async () => {
     setLoading(true);
@@ -129,11 +137,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
     Pendente: counts.Pendente || counts['Pendente'] || 0,
   }));
 
-  // Performance stats per service type
+  // Performance stats per service type with per-service period filtering
   const parsedObligationStats = OBLIGATIONS.map(ob => {
-    const counts = stats.obligationStats?.[ob.code] || {};
-    const concluidos = counts.Concluido || counts['Concluído'] || 0;
-    const pendentes = counts.Pendente || counts['Pendente'] || 0;
+    const period = selectedServicePeriods[ob.code] || 'Todos';
+    let concluidos = 0;
+    let pendentes = 0;
+    const compStats = stats.obligationCompetenceStats?.[ob.code] || {};
+
+    if (period === 'Todos') {
+      Object.values(compStats).forEach((counts: any) => {
+        concluidos += counts.Concluido || counts['Concluído'] || 0;
+        pendentes += counts.Pendente || 0;
+      });
+      if (concluidos === 0 && pendentes === 0) {
+        const counts = stats.obligationStats?.[ob.code] || {};
+        concluidos = counts.Concluido || counts['Concluído'] || 0;
+        pendentes = counts.Pendente || counts['Pendente'] || 0;
+      }
+    } else {
+      const counts = compStats[period] || { Concluido: 0, Pendente: 0 };
+      concluidos = counts.Concluido || counts['Concluído'] || 0;
+      pendentes = counts.Pendente || 0;
+    }
+
     const total = concluidos + pendentes;
     const taxa = total > 0 ? Math.round((concluidos / total) * 100) : 0;
     return {
@@ -400,13 +426,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
                 className="p-5 bg-white dark:bg-gray-900 border border-slate-200/50 dark:border-gray-800 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.01)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.02)] transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 gap-2">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${colors.text} ${colors.lightBg} px-2.5 py-1 rounded-md border ${colors.border}`}>
                       {ob.code}
                     </span>
-                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500">
-                      {ob.total} {ob.total === 1 ? 'obrigação' : 'obrigações'}
-                    </span>
+                    <select
+                      value={selectedServicePeriods[ob.code] || 'Todos'}
+                      onChange={(e) => setSelectedServicePeriods(prev => ({ ...prev, [ob.code]: e.target.value }))}
+                      className="text-[10px] font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded px-2 py-0.5 text-gray-700 dark:text-gray-300 cursor-pointer focus:outline-hidden"
+                    >
+                      <option value="Todos">Todos os Períodos</option>
+                      {(COMPETENCES[ob.code] || []).map(comp => (
+                        <option key={comp} value={comp}>{comp}</option>
+                      ))}
+                    </select>
                   </div>
                   <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate" title={ob.name}>
                     {ob.name}
