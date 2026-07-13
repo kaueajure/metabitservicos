@@ -180,3 +180,79 @@ export function isTaskOverdue(status: string, obligationCode: string, competence
   return now.getTime() > dueDate.getTime();
 }
 
+export function parseResponsible(responsibleStr: string): Record<string, any> {
+  const result: Record<string, any> = {
+    MSC: '',
+    RREO: '',
+    RGF: '',
+    DCA: '',
+    SIOPE: '',
+    SIOPS: '',
+    _activeServices: {
+      MSC: true,
+      RREO: true,
+      RGF: true,
+      DCA: true,
+      SIOPE: true,
+      SIOPS: true,
+    }
+  };
+
+  const codes = ['MSC', 'RREO', 'RGF', 'DCA', 'SIOPE', 'SIOPS'];
+
+  const unwrapValue = (v: any, key: string): string => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object') {
+      if (v[key] !== undefined && typeof v[key] !== 'object') {
+        return String(v[key]);
+      }
+      if (v[key] !== undefined && typeof v[key] === 'object') {
+        return unwrapValue(v[key], key);
+      }
+      const vals = Object.values(v).filter(x => typeof x === 'string');
+      if (vals.length > 0) return vals[0] as string;
+      return '';
+    }
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (trimmed.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          return unwrapValue(parsed, key);
+        } catch (e) {
+          return '';
+        }
+      }
+      return v;
+    }
+    return String(v);
+  };
+
+  try {
+    if (responsibleStr && responsibleStr.trim().startsWith('{')) {
+      const parsed = JSON.parse(responsibleStr);
+      codes.forEach(code => {
+        let val = parsed[code];
+        result[code] = unwrapValue(val, code);
+      });
+
+      if (parsed._activeServices && typeof parsed._activeServices === 'object') {
+        codes.forEach(code => {
+          if (parsed._activeServices[code] !== undefined) {
+            result._activeServices[code] = Boolean(parsed._activeServices[code]);
+          }
+        });
+      }
+      return result;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const val = responsibleStr === '-' ? '' : (responsibleStr || '');
+  codes.forEach(code => {
+    result[code] = unwrapValue(val, code);
+  });
+  return result;
+}
+

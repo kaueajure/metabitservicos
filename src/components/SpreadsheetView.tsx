@@ -26,47 +26,11 @@ import {
   SIOPSMembrosType,
   SIOPEFolhaType,
   getDueDate,
-  isTaskOverdue
+  isTaskOverdue,
+  parseResponsible
 } from '../types.ts';
 import { CellEditModal } from './CellEditModal.tsx';
-
-const parseResponsible = (responsibleStr: string): Record<string, any> => {
-  try {
-    if (responsibleStr && responsibleStr.startsWith('{')) {
-      const parsed = JSON.parse(responsibleStr);
-      if (!parsed._activeServices) {
-        parsed._activeServices = {
-          MSC: true,
-          RREO: true,
-          RGF: true,
-          DCA: true,
-          SIOPE: true,
-          SIOPS: true,
-        };
-      }
-      return parsed;
-    }
-  } catch (e) {
-    // Ignore
-  }
-  const val = responsibleStr === '-' ? '' : (responsibleStr || '');
-  return {
-    MSC: val,
-    RREO: val,
-    RGF: val,
-    DCA: val,
-    SIOPE: val,
-    SIOPS: val,
-    _activeServices: {
-      MSC: true,
-      RREO: true,
-      RGF: true,
-      DCA: true,
-      SIOPE: true,
-      SIOPS: true,
-    }
-  };
-};
+import { SERVICES } from './MunicipalitiesView.tsx';
 
 interface SpreadsheetViewProps {
   token: string | null;
@@ -627,6 +591,18 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                     {competencesList
                       .filter((c) => filterCompetence.length === 0 || filterCompetence.includes(c))
                       .map((comp) => {
+                        const respMap = parseResponsible(m.responsible);
+                        if (respMap._activeServices?.[selectedObligation] === false) {
+                          return (
+                            <td
+                              key={comp}
+                              className="border-r border-b border-gray-100 dark:border-gray-700 p-2 text-center text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-850/50 italic min-w-[70px] max-w-[70px] text-[10px]"
+                            >
+                              Inativo
+                            </td>
+                          );
+                        }
+
                         const task = tasks.find((t) => t.municipalityId === m.id && t.competence === comp);
 
                         // If no task found, don't crash, render placeholder cell

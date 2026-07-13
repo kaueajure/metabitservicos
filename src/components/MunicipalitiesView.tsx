@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api.ts';
 import { Plus, Search, Edit2, Trash2, Loader2, Mail, Phone, User, AlertCircle, X, ChevronRight, FileText, ChevronDown, Copy } from 'lucide-react';
-import { Municipality } from '../types.ts';
+import { Municipality, parseResponsible } from '../types.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
 
 export const EMPLOYEES = [
@@ -23,44 +23,6 @@ export const SERVICES = [
   { code: 'SIOPE', name: 'SIOPE (Educação)' },
   { code: 'SIOPS', name: 'SIOPS (Saúde)' }
 ];
-
-export const parseResponsible = (responsibleStr: string): Record<string, any> => {
-  try {
-    if (responsibleStr && responsibleStr.startsWith('{')) {
-      const parsed = JSON.parse(responsibleStr);
-      if (!parsed._activeServices) {
-        parsed._activeServices = {
-          MSC: true,
-          RREO: true,
-          RGF: true,
-          DCA: true,
-          SIOPE: true,
-          SIOPS: true,
-        };
-      }
-      return parsed;
-    }
-  } catch (e) {
-    // Ignore and fallback
-  }
-  const val = responsibleStr === '-' ? '' : (responsibleStr || '');
-  return {
-    MSC: val,
-    RREO: val,
-    RGF: val,
-    DCA: val,
-    SIOPE: val,
-    SIOPS: val,
-    _activeServices: {
-      MSC: true,
-      RREO: true,
-      RGF: true,
-      DCA: true,
-      SIOPE: true,
-      SIOPS: true,
-    }
-  };
-};
 
 interface MunicipalitiesViewProps {
   token: string | null;
