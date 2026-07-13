@@ -17,7 +17,7 @@ export const municipalities = mysqlTable('municipalities', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   state: varchar('state', { length: 50 }).notNull(),
-  responsible: varchar('responsible', { length: 255 }).notNull(),
+  responsible: text('responsible').notNull(),
   phone: varchar('phone', { length: 100 }).notNull(),
   email: varchar('email', { length: 255 }).notNull(),
   observations: text('observations'),

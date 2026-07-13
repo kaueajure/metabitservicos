@@ -573,8 +573,27 @@ async function startServer() {
             if (mun?.responsible && mun.responsible.startsWith('{')) {
               const parsed = JSON.parse(mun.responsible);
               const assignedVal = parsed[t.obligationCode];
-              if (assignedVal && assignedVal !== '-') {
-                taskResponsibles = assignedVal.split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== '-');
+              const getStr = (v: any, code: string): string => {
+                if (!v) return '';
+                if (typeof v === 'string') {
+                  const trimmed = v.trim();
+                  if (trimmed.startsWith('{')) {
+                    try { return getStr(JSON.parse(trimmed), code); } catch(e) { return v; }
+                  }
+                  return v;
+                }
+                if (typeof v === 'object') {
+                  if (v[code] !== undefined) return getStr(v[code], code);
+                  for (const x of Object.values(v)) {
+                    const res = getStr(x, code);
+                    if (res) return res;
+                  }
+                }
+                return String(v);
+              };
+              const assignedStr = getStr(assignedVal, t.obligationCode);
+              if (assignedStr && assignedStr !== '-') {
+                taskResponsibles = assignedStr.split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== '-');
               }
             } else if (mun?.responsible && mun.responsible !== '-') {
               taskResponsibles = mun.responsible.split(',').map((s: string) => s.trim()).filter((s: string) => s && s !== '-');

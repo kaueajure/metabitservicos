@@ -200,58 +200,48 @@ export function parseResponsible(responsibleStr: string): Record<string, any> {
 
   const codes = ['MSC', 'RREO', 'RGF', 'DCA', 'SIOPE', 'SIOPS'];
 
-  const unwrapValue = (v: any, key: string): string => {
-    if (v === null || v === undefined) return '';
-    if (typeof v === 'object') {
-      if (v[key] !== undefined && typeof v[key] !== 'object') {
-        return String(v[key]);
-      }
-      if (v[key] !== undefined && typeof v[key] === 'object') {
-        return unwrapValue(v[key], key);
-      }
-      const vals = Object.values(v).filter(x => typeof x === 'string');
-      if (vals.length > 0) return vals[0] as string;
-      return '';
-    }
-    if (typeof v === 'string') {
-      const trimmed = v.trim();
-      if (trimmed.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(trimmed);
-          return unwrapValue(parsed, key);
-        } catch (e) {
-          return '';
-        }
-      }
-      return v;
-    }
-    return String(v);
-  };
-
-  try {
-    if (responsibleStr && responsibleStr.trim().startsWith('{')) {
-      const parsed = JSON.parse(responsibleStr);
-      codes.forEach(code => {
-        let val = parsed[code];
-        result[code] = unwrapValue(val, code);
-      });
-
-      if (parsed._activeServices && typeof parsed._activeServices === 'object') {
-        codes.forEach(code => {
-          if (parsed._activeServices[code] !== undefined) {
-            result._activeServices[code] = Boolean(parsed._activeServices[code]);
-          }
-        });
-      }
-      return result;
-    }
-  } catch (e) {
-    // ignore
+  if (!responsibleStr || responsibleStr === '-' || responsibleStr.trim() === '') {
+    return result;
   }
 
-  const val = responsibleStr === '-' ? '' : (responsibleStr || '');
+  const trimmed = responsibleStr.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        codes.forEach(code => {
+          let val = parsed[code];
+          if (typeof val === 'string') {
+            const tv = val.trim();
+            if (tv === 'true' || tv === 'false' || tv === '[object Object]' || tv.startsWith('{')) {
+              result[code] = '';
+            } else {
+              result[code] = tv;
+            }
+          } else if (val !== null && val !== undefined && typeof val !== 'object') {
+            result[code] = String(val);
+          } else {
+            result[code] = '';
+          }
+        });
+
+        if (parsed._activeServices && typeof parsed._activeServices === 'object') {
+          codes.forEach(code => {
+            if (parsed._activeServices[code] !== undefined) {
+              result._activeServices[code] = Boolean(parsed._activeServices[code]);
+            }
+          });
+        }
+        return result;
+      }
+    } catch (e) {
+      // not valid json, treat as plain string
+    }
+  }
+
+  const plainVal = responsibleStr === '-' ? '' : responsibleStr;
   codes.forEach(code => {
-    result[code] = unwrapValue(val, code);
+    result[code] = plainVal;
   });
   return result;
 }

@@ -24,13 +24,18 @@ async function migrate() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         state VARCHAR(50) NOT NULL,
-        responsible VARCHAR(255) NOT NULL,
+        responsible TEXT NOT NULL,
         phone VARCHAR(100) NOT NULL,
         email VARCHAR(255) NOT NULL,
         observations TEXT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+
+    // Ensure existing municipalities table has responsible as TEXT
+    await pool.query(`
+      ALTER TABLE municipalities MODIFY COLUMN responsible TEXT NOT NULL;
+    `).catch(() => {});
 
     // Tasks
     await pool.query(`

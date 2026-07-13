@@ -247,9 +247,9 @@ export const MunicipalitiesView: React.FC<MunicipalitiesViewProps> = ({ token, o
           name: formName,
           state: formState,
           responsible: JSON.stringify(saveResponsible),
-          phone: '-',
-          email: 'contato@municipio.gov.br',
-          observations: '',
+          phone: formPhone || '-',
+          email: formEmail || 'contato@municipio.gov.br',
+          observations: formObservations || '',
         }),
       });
 
