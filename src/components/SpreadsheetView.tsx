@@ -573,38 +573,34 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
               <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-gray-850">
                 <tr>
                   {/* Municipalities Fixed Header */}
-                  <th className={`sticky left-0 top-0 z-30 bg-gray-100 dark:bg-gray-900 border-r border-b border-gray-200 dark:border-gray-700 px-4 py-3 text-gray-900 dark:text-white font-bold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${
-                    selectedObligation === 'MSC' ? 'min-w-[130px] max-w-[130px]' : 'min-w-[200px]'
-                  }`}>
+                  <th className="sticky left-0 top-0 z-30 bg-gray-100 dark:bg-gray-900 border-r border-b border-gray-200 dark:border-gray-700 px-4 py-3 text-gray-900 dark:text-white font-bold shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[130px] max-w-[130px]">
                     Município
                   </th>
-                  <th className={`sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-gray-700 px-2 py-3 text-center text-gray-700 dark:text-gray-300 font-bold ${
-                    selectedObligation === 'MSC' ? 'min-w-[40px] max-w-[40px]' : 'min-w-[60px]'
-                  }`}>
+                  <th className="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-gray-700 px-2 py-3 text-center text-gray-700 dark:text-gray-300 font-bold min-w-[40px] max-w-[40px]">
                     UF
                   </th>
                   {/* Competencies Headers */}
                   {competencesList
                     .filter((c) => filterCompetence.length === 0 || filterCompetence.includes(c))
-                    .map((comp) => (
-                      <th
-                        key={comp}
-                        className={`sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-gray-700 px-2 py-2.5 text-center text-gray-700 dark:text-gray-300 font-bold ${
-                          selectedObligation === 'MSC' ? 'min-w-[70px] max-w-[70px] text-[10px]' : 'min-w-[150px] text-xs'
-                        }`}
-                      >
-                        {comp}
-                      </th>
-                    ))}
+                    .map((comp) => {
+                      const shortC = comp.includes('Bimestre') ? comp.replace('Bimestre', 'Bim.') : comp.includes('Quadrimestre') ? comp.replace('Quadrimestre', 'Quad.') : comp;
+                      return (
+                        <th
+                          key={comp}
+                          className="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-r border-gray-200 dark:border-gray-700 px-1 py-2 text-center text-gray-700 dark:text-gray-300 font-bold whitespace-nowrap min-w-[70px] max-w-[70px] text-[10px]"
+                          title={comp}
+                        >
+                          {shortC}
+                        </th>
+                      );
+                    })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredMunsList.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/25 group transition-colors">
                     {/* Fixed Municipality cell during horizontal scrolling */}
-                    <td className={`sticky left-0 z-10 bg-white dark:bg-gray-800 group-hover:bg-gray-50/90 dark:group-hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 px-3 py-2.5 font-bold text-gray-900 dark:text-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] ${
-                      selectedObligation === 'MSC' ? 'min-w-[130px] max-w-[130px]' : 'min-w-[200px]'
-                    }`}>
+                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-800 group-hover:bg-gray-50/90 dark:group-hover:bg-gray-700 border-r border-gray-200 dark:border-gray-700 px-3 py-2 font-bold text-gray-900 dark:text-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[130px] max-w-[130px]">
                       <div className="truncate text-xs" title={m.name}>
                         {m.name}
                       </div>
@@ -623,9 +619,7 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                     </td>
 
                     {/* State column */}
-                    <td className={`border-r border-gray-200 dark:border-gray-700 px-2 py-2.5 text-center text-gray-500 font-bold dark:text-gray-400 ${
-                      selectedObligation === 'MSC' ? 'min-w-[40px] max-w-[40px] text-[11px]' : ''
-                    }`}>
+                    <td className="border-r border-gray-200 dark:border-gray-700 px-2 py-2 text-center text-gray-500 font-bold dark:text-gray-400 min-w-[40px] max-w-[40px] text-[11px]">
                       {m.state}
                     </td>
 
@@ -640,7 +634,7 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                           return (
                             <td
                               key={comp}
-                              className="border-r border-b border-gray-100 dark:border-gray-700 p-2 text-center text-gray-400 italic"
+                              className="border-r border-b border-gray-100 dark:border-gray-700 p-2 text-center text-gray-400 italic min-w-[70px] max-w-[70px]"
                             >
                               Carregando...
                             </td>
@@ -662,9 +656,9 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                           return (
                             <td
                               key={comp}
-                              className="border-r border-b border-gray-100 dark:border-gray-700 p-2 text-center text-gray-300 dark:text-gray-600 bg-gray-50/30 dark:bg-gray-900/10 italic"
+                              className="border-r border-b border-gray-100 dark:border-gray-700 p-2 text-center text-gray-300 dark:text-gray-600 bg-gray-50/30 dark:bg-gray-900/10 italic min-w-[70px] max-w-[70px]"
                             >
-                              Oculto por filtro
+                              Oculto
                             </td>
                           );
                         }
@@ -675,21 +669,29 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                         const statusColor = STATUS_COLORS[task.status] || '#374151';
                         const statusBg = STATUS_BG_COLORS[task.status] || '#F3F4F6';
 
+                        const shortStatus = (st: StatusType) => {
+                          switch (st) {
+                            case 'Não iniciado': return 'Não Inic.';
+                            case 'Trabalhando': return 'Trab.';
+                            case 'Retificar': return 'Retif.';
+                            case 'Homologado': return 'Homolog.';
+                            case 'Falta XML': return 'F. XML';
+                            case 'Pendência Cliente': return 'Pend. Cli.';
+                            default: return st;
+                          }
+                        };
+
                         return (
                           <td
                             key={comp}
                             onClick={() => setSelectedTaskForEdit(task)}
-                            className={`border-r border-b border-gray-200 dark:border-gray-700/60 align-middle cursor-pointer hover:scale-[1.01] transition-transform duration-100 relative group/cell ${
+                            className={`border-r border-b border-gray-200 dark:border-gray-700/60 align-middle cursor-pointer hover:scale-[1.01] transition-transform duration-100 relative group/cell p-1 min-h-[36px] min-w-[70px] max-w-[70px] ${
                               isOverdue ? 'ring-1 ring-red-500 ring-inset bg-red-50/10 dark:bg-red-950/5' : ''
-                            } ${
-                              selectedObligation === 'MSC' ? 'p-1 min-h-[38px] min-w-[70px] max-w-[70px]' : 'p-1.5 min-h-[50px] min-w-[150px]'
                             }`}
                             title={`Status: ${task.status}\nVencimento: ${formattedDueDate}${isOverdue ? ' (VENCIDO!)' : ''}\nClique para editar, adicionar observações, histórico ou arquivos.`}
                           >
                             <div
-                              className={`w-full h-full rounded border flex flex-col justify-center text-center ${
-                                selectedObligation === 'MSC' ? 'p-1 min-h-[28px]' : 'p-2'
-                              }`}
+                              className="w-full h-full rounded border flex flex-col justify-center text-center p-1 min-h-[28px]"
                               style={{
                                 backgroundColor: statusBg,
                                 borderColor: isOverdue ? '#EF4444' : 'transparent',
@@ -697,46 +699,22 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                               }}
                             >
                               <div className="flex items-center justify-center">
-                                <span className={`font-bold tracking-wider uppercase truncate ${
-                                  selectedObligation === 'MSC' ? 'text-[8px]' : 'text-[9px]'
-                                }`}>
-                                  {selectedObligation === 'MSC' ? (
-                                    task.status === 'Não iniciado' ? 'Não Inic.' :
-                                    task.status === 'Trabalhando' ? 'Trab.' :
-                                    task.status === 'Retificar' ? 'Retif.' :
-                                    task.status === 'Homologado' ? 'Homolog.' :
-                                    task.status === 'Falta XML' ? 'F. XML' :
-                                    task.status
-                                  ) : (
-                                    task.status
-                                  )}
+                                <span className="font-bold tracking-wider uppercase truncate text-[8px]">
+                                  {shortStatus(task.status)}
                                 </span>
                               </div>
 
                               {/* SIOPS additional label */}
                               {selectedObligation === 'SIOPS' && task.siopsMembros && (
-                                <span className="text-[9px] mt-1 text-gray-500/80 dark:text-gray-400 font-semibold border-t border-gray-200/40 dark:border-gray-700/40 pt-0.5 truncate">
+                                <span className="text-[7.5px] mt-0.5 text-gray-500/80 dark:text-gray-400 font-semibold truncate">
                                   {task.siopsMembros}
                                 </span>
                               )}
 
                               {/* SIOPE additional label */}
                               {selectedObligation === 'SIOPE' && task.siopeFolha && (
-                                <span className="text-[9px] mt-1 text-gray-500/80 dark:text-gray-400 font-semibold border-t border-gray-200/40 dark:border-gray-700/40 pt-0.5 truncate">
+                                <span className="text-[7.5px] mt-0.5 text-gray-500/80 dark:text-gray-400 font-semibold truncate">
                                   {task.siopeFolha}
-                                </span>
-                              )}
-
-                              {/* Display deadline inside non-MSC cells */}
-                              {selectedObligation !== 'MSC' && (
-                                <span className={`text-[8.5px] mt-1.5 px-1 py-0.5 rounded-sm self-center font-bold border ${
-                                  isOverdue 
-                                    ? 'text-red-700 dark:text-red-400 bg-red-100/50 dark:bg-red-950/20 border-red-200 dark:border-red-900/30' 
-                                    : (task.status === 'Homologado' || task.status === 'Enviado')
-                                      ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-150/30'
-                                      : 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/40 border-gray-200/30'
-                                }`}>
-                                  {isOverdue ? `Vencido ${formattedDueDate}` : `Prazo: ${formattedDueDate}`}
                                 </span>
                               )}
                             </div>
