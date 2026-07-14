@@ -841,3 +841,40 @@ export async function createEmployee(name: string): Promise<string[]> {
     throw new Error('Erro ao cadastrar funcionário.');
   }
 }
+
+export async function getTasksCommentsMap(year: number, obligationCode: string) {
+  try {
+    const list = await db.select({
+      id: comments.id,
+      taskId: comments.taskId,
+      authorName: comments.authorName,
+      text: comments.text,
+      createdAt: comments.createdAt,
+    })
+    .from(comments)
+    .innerJoin(tasks, eq(comments.taskId, tasks.id))
+    .where(
+      and(
+        eq(tasks.year, year),
+        eq(tasks.obligationCode, obligationCode)
+      )
+    );
+
+    const map: Record<number, any[]> = {};
+    for (const c of list) {
+      let author = c.authorName;
+      if (author && author.trim().toLowerCase() === 'comercialmetabit@gmail.com') {
+        author = 'Administrador';
+      }
+      if (!map[c.taskId]) {
+        map[c.taskId] = [];
+      }
+      map[c.taskId].push({ ...c, authorName: author });
+    }
+    return map;
+  } catch (error) {
+    console.error('Error in getTasksCommentsMap:', error);
+    return {};
+  }
+}
+

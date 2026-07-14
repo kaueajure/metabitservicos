@@ -8,6 +8,7 @@ interface CellEditModalProps {
   task: Task;
   municipalityName: string;
   token: string | null;
+  initialTab?: 'alterar' | 'historico' | 'comentarios';
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -16,11 +17,12 @@ export const CellEditModal: React.FC<CellEditModalProps> = ({
   task,
   municipalityName,
   token,
+  initialTab = 'alterar',
   onClose,
   onUpdate,
 }) => {
   const { postgresUser, user, employees } = useAuth();
-  const [activeTab, setActiveTab] = useState<'alterar' | 'historico' | 'comentarios'>('alterar');
+  const [activeTab, setActiveTab] = useState<'alterar' | 'historico' | 'comentarios'>(initialTab);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
   const [loadingAttachments, setLoadingAttachments] = useState(false);

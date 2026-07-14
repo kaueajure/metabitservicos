@@ -26,6 +26,7 @@ import {
   getAttachmentById,
   getAllTasksForStats,
   getAllHistory,
+  getTasksCommentsMap,
   getUserByEmail,
   getUserByUid,
   createUser,
@@ -273,6 +274,23 @@ async function startServer() {
 
       const list = await getOrCreateTasks(year, obligationCode);
       res.json(list);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Tasks comments map query
+  app.get('/api/tasks/comments-map', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const year = parseInt(req.query.year as string, 10);
+      const obligationCode = req.query.obligationCode as string;
+
+      if (!year || !obligationCode) {
+        return res.status(400).json({ error: 'Parametros "year" e "obligationCode" são obrigatórios.' });
+      }
+
+      const map = await getTasksCommentsMap(year, obligationCode);
+      res.json(map);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

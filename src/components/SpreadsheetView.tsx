@@ -61,6 +61,15 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
 
   // Edit Modal State
   const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<Task | null>(null);
+  const [editModalInitialTab, setEditModalInitialTab] = useState<'alterar' | 'historico' | 'comentarios'>('alterar');
+  const [commentsMap, setCommentsMap] = useState<Record<number, any[]>>({});
+  const [hoveredCellInfo, setHoveredCellInfo] = useState<{
+    task: Task;
+    munName: string;
+    comments: any[];
+    dueDate: string;
+    isOverdue: boolean;
+  } | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -87,6 +96,12 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
       const tasksRes = await apiFetch(`/api/tasks?year=${selectedYear}&obligationCode=${selectedObligation}`);
       const tasksData = await tasksRes.json();
       setTasks(tasksData);
+
+      const commentsRes = await apiFetch(`/api/tasks/comments-map?year=${selectedYear}&obligationCode=${selectedObligation}`);
+      if (commentsRes.ok) {
+        const commentsData = await commentsRes.json();
+        setCommentsMap(commentsData);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -639,6 +654,7 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                           );
                         }
 
+                        const taskComments = commentsMap[task.id] || [];
                         const isOverdue = isTaskOverdue(task.status, task.obligationCode, task.competence, task.year);
                         const dueDate = getDueDate(task.obligationCode, task.competence, task.year);
                         const formattedDueDate = dueDate.toLocaleDateString('pt-BR');
@@ -660,7 +676,18 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                         return (
                           <td
                             key={comp}
-                            onClick={() => setSelectedTaskForEdit(task)}
+                            onClick={() => {
+                              setEditModalInitialTab('alterar');
+                              setSelectedTaskForEdit(task);
+                            }}
+                            onMouseEnter={() => setHoveredCellInfo({
+                              task,
+                              munName: m.name,
+                              comments: taskComments,
+                              dueDate: formattedDueDate,
+                              isOverdue,
+                            })}
+                            onMouseLeave={() => setHoveredCellInfo(null)}
                             className={`border-r border-b border-gray-200 dark:border-gray-700/60 align-middle cursor-pointer hover:scale-[1.01] transition-transform duration-100 relative group/cell p-1 min-h-[36px] min-w-[70px] max-w-[70px] ${
                               isOverdue ? 'ring-1 ring-red-500 ring-inset bg-red-50/10 dark:bg-red-950/5' : ''
                             }`}
@@ -697,6 +724,20 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
 
                             {/* Indicators of Comments, Attachments or Logs */}
                             <div className="absolute right-1 top-1 flex items-center gap-0.5 transition-opacity">
+                              {taskComments.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditModalInitialTab('comentarios');
+                                    setSelectedTaskForEdit(task);
+                                  }}
+                                  className="px-1.5 py-0.5 text-[7px] font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center gap-0.5 shadow-sm cursor-pointer transition-colors"
+                                  title={`${taskComments.length} comentário(s) neste período. Clique para ver/comentar.`}
+                                >
+                                  💬 {taskComments.length}
+                                </button>
+                              )}
                               {isOverdue && (
                                 <span 
                                   className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse border border-white dark:border-gray-900" 
@@ -721,9 +762,46 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
           task={selectedTaskForEdit}
           municipalityName={muns.find((m) => m.id === selectedTaskForEdit.municipalityId)?.name || 'Município'}
           token={token}
+          initialTab={editModalInitialTab}
           onClose={() => setSelectedTaskForEdit(null)}
           onUpdate={fetchData}
         />
+      )}
+
+      {/* Floating Hover Card for Comments & Period details */}
+      {hoveredCellInfo && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-2xl shadow-2xl p-6 max-w-lg w-full animate-in fade-in zoom-in-95 duration-150 pointer-events-none">
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 dark:text-white">
+                {hoveredCellInfo.munName} — {hoveredCellInfo.task.competence} ({selectedObligation} {selectedYear})
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Status: <span className="font-semibold" style={{ color: STATUS_COLORS[hoveredCellInfo.task.status] }}>{hoveredCellInfo.task.status}</span> | Vencimento: {hoveredCellInfo.dueDate} {hoveredCellInfo.isOverdue && <span className="text-red-500 font-bold">(VENCIDO)</span>}
+              </p>
+            </div>
+            <MessageSquare size={20} className="text-blue-500" />
+          </div>
+
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <p className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+              Comentários ({hoveredCellInfo.comments.length}):
+            </p>
+            {hoveredCellInfo.comments.length === 0 ? (
+              <p className="text-sm text-gray-400 italic py-4 text-center">Nenhum comentário registrado para este período.</p>
+            ) : (
+              hoveredCellInfo.comments.map((c: any) => (
+                <div key={c.id} className="bg-gray-50 dark:bg-gray-900 p-3 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{c.authorName || 'Usuário'}</span>
+                    <span className="text-gray-400">{new Date(c.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                  </div>
+                  <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">{c.text}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
