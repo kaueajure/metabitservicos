@@ -680,13 +680,17 @@ export const SpreadsheetView: React.FC<SpreadsheetViewProps> = ({ token, refresh
                               setEditModalInitialTab('alterar');
                               setSelectedTaskForEdit(task);
                             }}
-                            onMouseEnter={() => setHoveredCellInfo({
-                              task,
-                              munName: m.name,
-                              comments: taskComments,
-                              dueDate: formattedDueDate,
-                              isOverdue,
-                            })}
+                            onMouseEnter={() => {
+                              if (taskComments.length > 0) {
+                                setHoveredCellInfo({
+                                  task,
+                                  munName: m.name,
+                                  comments: taskComments,
+                                  dueDate: formattedDueDate,
+                                  isOverdue,
+                                });
+                              }
+                            }}
                             onMouseLeave={() => setHoveredCellInfo(null)}
                             className={`border-r border-b border-gray-200 dark:border-gray-700/60 align-middle cursor-pointer hover:scale-[1.01] transition-transform duration-100 relative group/cell p-1 min-h-[36px] min-w-[70px] max-w-[70px] ${
                               isOverdue ? 'ring-1 ring-red-500 ring-inset bg-red-50/10 dark:bg-red-950/5' : ''
