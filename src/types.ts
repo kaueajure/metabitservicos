@@ -171,12 +171,12 @@ export function getDueDate(obligationCode: string, competence: string, year: num
   return new Date(dueYear, dueMonth, 0, 23, 59, 59);
 }
 
-export function isTaskOverdue(status: string, obligationCode: string, competence: string, year: number): boolean {
+export function isTaskOverdue(status: string, obligationCode: string, competence: string, year: number, nowOverride?: Date): boolean {
   if (status === 'Homologado' || status === 'Enviado') {
     return false;
   }
   const dueDate = getDueDate(obligationCode, competence, year);
-  const now = new Date();
+  const now = nowOverride || new Date();
   return now.getTime() > dueDate.getTime();
 }
 

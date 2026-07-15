@@ -64,7 +64,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`/api/stats?year=${yearValue}`);
+      const res = await apiFetch(`/api/stats?year=${yearValue}&clientDate=${encodeURIComponent(new Date().toISOString())}`);
       if (!res.ok) {
         throw new Error('Falha ao buscar dados do servidor');
       }

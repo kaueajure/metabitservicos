@@ -478,6 +478,15 @@ async function startServer() {
       const muns = await getMunicipalities();
       let allTasks = await getAllTasksForStats();
       
+      const clientDateStr = req.query.clientDate as string;
+      let nowOverride: Date | undefined = undefined;
+      if (clientDateStr) {
+        const parsed = new Date(clientDateStr);
+        if (!isNaN(parsed.getTime())) {
+          nowOverride = parsed;
+        }
+      }
+      
       const yearQuery = req.query.year;
       if (yearQuery) {
         const yearNum = parseInt(yearQuery as string, 10);
@@ -670,7 +679,7 @@ async function startServer() {
         }
 
         // Check overdue status
-        const isOverdue = isTaskOverdue(t.status, t.obligationCode, t.competence, t.year);
+        const isOverdue = isTaskOverdue(t.status, t.obligationCode, t.competence, t.year, nowOverride);
         if (isOverdue) {
           totalOverdue++;
           overdueByObligation[code] = (overdueByObligation[code] || 0) + 1;
