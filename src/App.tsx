@@ -395,7 +395,7 @@ function DashboardApp() {
 
 function AuthForm() {
   const { login, register, loading, employees } = useAuth();
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -410,10 +410,24 @@ function AuthForm() {
       return;
     }
     try {
-      if (isRegisterMode) {
+      if (mode === 'register') {
         await register(email, password, name || undefined, employeeName || undefined);
-      } else {
+      } else if (mode === 'login') {
         await login(email, password);
+      } else if (mode === 'reset') {
+        const response = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Erro ao redefinir senha.');
+        }
+        alert('Senha redefinida com sucesso! Entre usando sua nova senha.');
+        setMode('login');
       }
     } catch (err: any) {
       setAuthError(err.message || 'Ocorreu um erro ao realizar a autenticação.');
@@ -427,11 +441,11 @@ function AuthForm() {
         <button
           type="button"
           onClick={() => {
-            setIsRegisterMode(false);
+            setMode('login');
             setAuthError('');
           }}
           className={`flex-1 py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-            !isRegisterMode
+            mode === 'login'
               ? 'text-gray-900 dark:text-white border-b-2 border-gray-950 dark:border-white font-black'
               : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
           }`}
@@ -441,16 +455,30 @@ function AuthForm() {
         <button
           type="button"
           onClick={() => {
-            setIsRegisterMode(true);
+            setMode('register');
             setAuthError('');
           }}
           className={`flex-1 py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
-            isRegisterMode
+            mode === 'register'
               ? 'text-gray-900 dark:text-white border-b-2 border-gray-950 dark:border-white font-black'
               : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
           }`}
         >
           Cadastrar
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('reset');
+            setAuthError('');
+          }}
+          className={`flex-1 py-2 text-center text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+            mode === 'reset'
+              ? 'text-gray-900 dark:text-white border-b-2 border-gray-950 dark:border-white font-black'
+              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
+          }`}
+        >
+          Redefinir
         </button>
       </div>
 
@@ -461,7 +489,7 @@ function AuthForm() {
           </div>
         )}
 
-        {isRegisterMode && (
+        {mode === 'register' && (
           <div>
             <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-widest mb-1">
               Nome Completo
@@ -492,19 +520,19 @@ function AuthForm() {
 
         <div>
           <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-widest mb-1">
-            Senha
+            {mode === 'reset' ? 'Nova Senha' : 'Senha'}
           </label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Digite sua senha"
+            placeholder={mode === 'reset' ? 'Digite a nova senha' : 'Digite sua senha'}
             required
             className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded px-3 py-2 text-xs focus:outline-hidden text-gray-900 dark:text-gray-100"
           />
         </div>
 
-        {isRegisterMode && (
+        {mode === 'register' && (
           <div>
             <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-550 uppercase tracking-widest mb-1">
               Vincular Funcionário (Opcional)
@@ -535,7 +563,7 @@ function AuthForm() {
               <span>Processando...</span>
             </>
           ) : (
-            <span>{isRegisterMode ? 'Registrar e Entrar' : 'Entrar'}</span>
+            <span>{mode === 'register' ? 'Registrar e Entrar' : mode === 'reset' ? 'Redefinir Senha' : 'Entrar'}</span>
           )}
         </button>
       </form>

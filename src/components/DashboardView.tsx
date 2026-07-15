@@ -46,6 +46,7 @@ interface ResponsibleStat {
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +60,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
     SIOPS: 'Todos',
   });
 
-  const fetchStats = async () => {
+  const fetchStats = async (yearValue = selectedYear) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/api/stats');
+      const res = await apiFetch(`/api/stats?year=${yearValue}`);
       if (!res.ok) {
         throw new Error('Falha ao buscar dados do servidor');
       }
@@ -79,9 +80,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
 
   useEffect(() => {
     if (token) {
-      fetchStats();
+      fetchStats(selectedYear);
     }
-  }, [token]);
+  }, [token, selectedYear]);
 
   if (loading) {
     return (
@@ -245,13 +246,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ token }) => {
           <h2 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">Indicadores de Desempenho</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Acompanhamento e análise de performance das obrigações e servidores municipais.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl px-3 py-2 shadow-xs">
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Exercício:</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-transparent text-xs font-black text-gray-950 dark:text-white focus:outline-hidden cursor-pointer"
+            >
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+              <option value={2027}>2027</option>
+            </select>
+          </div>
+
           <span className="text-xs text-gray-400 dark:text-gray-500 font-medium inline-flex items-center gap-1.5 bg-slate-50 dark:bg-gray-850 px-2.5 py-1.5 rounded-lg border border-slate-200/40 dark:border-gray-800">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Dados Atualizados
           </span>
           <button
-            onClick={fetchStats}
+            onClick={() => fetchStats(selectedYear)}
             className="px-4 py-2 bg-white hover:bg-slate-50 dark:bg-gray-900 dark:hover:bg-gray-800 border border-slate-200 dark:border-gray-800 rounded-xl text-gray-700 dark:text-gray-300 text-xs font-bold inline-flex items-center gap-2 cursor-pointer shadow-sm transition-all hover:border-slate-300 dark:hover:border-gray-750 active:scale-98"
             title="Sincronizar Dados"
           >

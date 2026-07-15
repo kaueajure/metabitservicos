@@ -83,6 +83,27 @@ async function startServer() {
     }
   });
 
+  // Auth reset password
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'E-mail e nova senha são obrigatórios.' });
+      }
+      const cleanEmail = email.trim().toLowerCase();
+      const userRecord = await getUserByEmail(cleanEmail);
+      if (!userRecord) {
+        return res.status(404).json({ error: 'E-mail não encontrado.' });
+      }
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userRecord.id));
+      res.json({ message: 'Senha redefinida com sucesso!' });
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Auth login
   app.post('/api/auth/login', async (req, res) => {
     try {
@@ -455,7 +476,18 @@ async function startServer() {
   app.get('/api/stats', requireAuth, async (req: AuthRequest, res) => {
     try {
       const muns = await getMunicipalities();
-      const allTasks = await getAllTasksForStats();
+      let allTasks = await getAllTasksForStats();
+      
+      const yearQuery = req.query.year;
+      if (yearQuery) {
+        const yearNum = parseInt(yearQuery as string, 10);
+        if (!isNaN(yearNum)) {
+          allTasks = allTasks.filter(t => t.year === yearNum);
+        }
+      } else {
+        allTasks = allTasks.filter(t => t.year === 2026);
+      }
+
       const allHistory = await getAllHistory();
 
       // Sort history by ID ascending so the latest change overrides previous ones
